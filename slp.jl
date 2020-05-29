@@ -19,7 +19,7 @@ function slp(network)
 		@variable(lp, x[1:bus_size]>=0)
 		@variable(lp, y[1:bus_size]>=0)
 
-		@constraint(lp, [i=1:bus_size], x[i]+y[j] >= i*10);
+		@constraint(lp, [i=1:bus_size], x[i]+y[i] >= i*10);
 		
 		@objective(lp, Min, cx*sum(x)+cy*sum(y));
 		@time JuMP.optimize!(lp);
