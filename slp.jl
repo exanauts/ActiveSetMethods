@@ -12,7 +12,7 @@ eps=0.0001; itr_max=2
 function slp(network)
 	#Initialization
 	# TODO: Add some initialization
-	itr=0; err=1;
+	itr=0; err=1.0; cx=2.0; cy=3.0;
 	bus_size=length(network["bus"])
 	while(err>eps && itr<itr_max) itr+=1;
 		lp=Model(with_optimizer(Ipopt.Optimizer, OutputFlag=0));
@@ -34,7 +34,7 @@ network = PowerModels.parse_file("cases/case3.m");
 println("Network Data Read Successfully");
 
 slp(network);
-println("SLP Optimization wa Successfully");
+println("SLP Optimization was Successfully");
 
 
 
