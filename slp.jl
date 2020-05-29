@@ -1,6 +1,6 @@
 #Importing Packages
 using JuMP, Ipopt, PowerModels
-println("Packages were successfully imported")
+println("Packages were imported successfully")
 
 
 #Defining Parameters
@@ -31,7 +31,7 @@ end
 
 #Read Network Data
 network = PowerModels.parse_file("cases/case3.m");
-println("Network Data Read Successfully");
+println("Network Data was Read Successfully");
 
 slp(network);
 println("SLP Optimization was called Successfully");
