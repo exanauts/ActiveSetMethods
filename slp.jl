@@ -34,7 +34,7 @@ network = PowerModels.parse_file("cases/case3.m");
 println("Network Data Read Successfully");
 
 slp(network);
-println("SLP Optimization was Successfully");
+println("SLP Optimization was called Successfully");
 
 
 
