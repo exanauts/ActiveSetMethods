@@ -15,7 +15,7 @@ function slp(network)
 	itr=0; err=1.0; cx=2.0; cy=3.0;
 	bus_size=length(network["bus"])
 	while(err>eps && itr<itr_max) itr+=1;
-		lp=Model(with_optimizer(Ipopt.Optimizer, OutputFlag=0));
+		lp=Model(with_optimizer(Ipopt.Optimizer, print_level=0));
 		@variable(lp, x[1:bus_size]>=0)
 		@variable(lp, y[1:bus_size]>=0)
 
