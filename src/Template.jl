@@ -1,5 +1,5 @@
 
-module Template
+module ProxSDP
 
 using MathOptInterface, TimerOutputs
 using Arpack
