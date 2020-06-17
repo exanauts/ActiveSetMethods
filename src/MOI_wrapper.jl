@@ -82,7 +82,7 @@ function Optimizer(;kwargs...)
     return optimizer
 end
 
-MOI.get(::Optimizer, ::MOI.SolverName) = "ProxSDP"
+MOI.get(::Optimizer, ::MOI.SolverName) = "Slopt"
 
 function MOI.set(optimizer::Optimizer, param::MOI.RawParameter, value)
     fields = fieldnames(Options)
