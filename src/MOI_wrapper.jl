@@ -511,9 +511,11 @@ function MOI.optimize!(optimizer::Optimizer)
     end
 
     # warm = WarmStart()
-
+    println("** aff: ", aff);
+    println("** con: ", con);
+    println("** options: ", options);
     sol = @timeit "Main" chambolle_pock(aff, con, options)
-
+    println("** sol: ", sol);
     #= 
         Unload solution
     =#

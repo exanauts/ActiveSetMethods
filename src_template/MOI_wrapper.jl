@@ -424,7 +424,12 @@ function MOI.optimize!(optimizer::Optimizer)
     n_eqs = size(A)[1]
     n_ineqs = size(G)[1]
     aff = AffineSets(n_variables, n_eqs, n_ineqs, 0, A, G, b, h, c)
-
+    
+    println("---------> A: ", A);
+    println("---------> G: ", G);
+    println("---------> b: ", b);
+    println("---------> h: ", h);
+    println("---------> c: ", c);
     #= 
         Build conic sets
     =#
@@ -511,8 +516,11 @@ function MOI.optimize!(optimizer::Optimizer)
     end
 
     # warm = WarmStart()
-
+    println("** aff: ", aff);
+    println("** con: ", con);
+    println("** options: ", options);
     sol = @timeit "Main" chambolle_pock(aff, con, options)
+    println("** sol: ", sol);
 
     #= 
         Unload solution

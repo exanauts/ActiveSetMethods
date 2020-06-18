@@ -20,7 +20,7 @@ end
     #include("printing.jl")
     #include("scaling.jl")
     #include("equilibration.jl")
-    #include("pdhg.jl")
+    include("pdhg.jl")
     #include("residuals.jl")
     #include("eigsolver.jl")
     #include("prox_operators.jl")
