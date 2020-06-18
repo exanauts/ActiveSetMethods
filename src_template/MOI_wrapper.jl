@@ -324,6 +324,8 @@ function MOIU.load_variables(optimizer::Optimizer, nvars::Integer)
     h = zeros(cone.in_tot)
 
     tot_vars = nvars# + cone.cone_cols
+    println("--> MOIU.load_variables(tot_vars): ", tot_vars);
+    println("--> MOIU.load_variables(m): ", m);
     c = zeros(tot_vars)
     optimizer.data = ModelData(m, tot_vars, I, J, V, b, Ii, Ji, Vi, h, 0., c)
     # `optimizer.sol` contains the result of the previous optimization.
