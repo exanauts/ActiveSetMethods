@@ -250,10 +250,12 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     set::SupportedSets)
 
     vec = get_cone_list(optimizer.cone, set)[ci.value]
-    println("--> MOIU.load_constraint(f): ", f);
-    println("--> MOIU.load_constraint(set): ", set);
-    println("--> MOIU.load_constraint(vec): ", vec);
+    println("--> MOIU.load_constraint0 (optimizer): ", optimizer);
+    println("--> MOIU.load_constraint0 (f): ", f);
+    println("--> MOIU.load_constraint0 (set): ", set);
+    println("--> MOIU.load_constraint0 Before (vec): ", vec);
     append!(vec, [i.value for i in f.variables])
+    println("--> MOIU.load_constraint0 After (vec): ", vec);
     nothing
 end
 
@@ -285,6 +287,10 @@ coefficient(t::MOI.VectorAffineTerm) = coefficient(t.scalar_term)
 function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
                               f::MOI.VectorAffineFunction,
                               set::MOI.AbstractVectorSet)
+    println("--> MOIU.load_constraint Before (optimizer): ", optimizer);
+    println("--> MOIU.load_constraint Before (ci): ", ci);
+    println("--> MOIU.load_constraint Before (f): ", f);
+    println("--> MOIU.load_constraint Before (set): ", set);
     A = sparse(output_index.(f.terms), variable_index_value.(f.terms),
                coefficient.(f.terms))
     # sparse combines duplicates with + but does
@@ -317,6 +323,12 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     println("--> MOIU.load_constraint (I_): ", I_);
     println("--> MOIU.load_constraint (J_): ", J_);
     println("--> MOIU.load_constraint (V_): ", V_);
+    
+    println("--> MOIU.load_constraint After (optimizer): ", optimizer);
+    println("--> MOIU.load_constraint After (ci): ", ci);
+    println("--> MOIU.load_constraint After (f): ", f);
+    println("--> MOIU.load_constraint After (set): ", set);
+    
     nothing
 end
 function ctr_offset(optimizer::Optimizer, set::MOI.Zeros, ci)
