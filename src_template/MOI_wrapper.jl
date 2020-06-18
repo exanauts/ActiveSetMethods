@@ -263,10 +263,11 @@ end
 
 # Vectorized length for matrix dimension n
 sympackedlen(n) = div(n*(n+1), 2)
-println("--> sympackedlen(n): ", sympackedlen(n));
+println("--> sympackedlen(n)(n): ", n);
+println("--> sympackedlen(n): ", div(n*(n+1), 2));
 # Matrix dimension for vectorized length n
 sympackeddim(n) = div(isqrt(1+8n) - 1, 2)
-println("--> sympackeddim(n): ", sympackeddim(n));
+println("--> sympackeddim(n): ", div(isqrt(1+8n) - 1, 2));
 
 output_index(t::MOI.VectorAffineTerm) = t.output_index
 println("--> output_index: ", t.output_index);
