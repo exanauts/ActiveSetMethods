@@ -263,24 +263,24 @@ end
 
 # Vectorized length for matrix dimension n
 sympackedlen(n) = div(n*(n+1), 2)
-println("--> sympackedlen(n)(n): ", n);
-println("--> sympackedlen(n): ", div(n*(n+1), 2));
+#println("--> sympackedlen(n)(n): ", n);
+#println("--> sympackedlen(n): ", div(n*(n+1), 2));
 # Matrix dimension for vectorized length n
 sympackeddim(n) = div(isqrt(1+8n) - 1, 2)
-println("--> sympackeddim(n): ", div(isqrt(1+8n) - 1, 2));
+#println("--> sympackeddim(n): ", div(isqrt(1+8n) - 1, 2));
 
 output_index(t::MOI.VectorAffineTerm) = t.output_index
-println("--> output_index: ", t.output_index);
+#println("--> output_index: ", t.output_index);
 variable_index_value(v::MOI.VariableIndex) = v.value
-println("--> variable_index_value(v::MOI.VariableIndex): ", v.value);
+#println("--> variable_index_value(v::MOI.VariableIndex): ", v.value);
 variable_index_value(t::MOI.ScalarAffineTerm) = t.variable_index.value
-println("--> variable_index_value(t::MOI.ScalarAffineTerm): ", t.variable_index.value);
+#println("--> variable_index_value(t::MOI.ScalarAffineTerm): ", t.variable_index.value);
 variable_index_value(t::MOI.VectorAffineTerm) = variable_index_value(t.scalar_term)
-println("--> variable_index_value(t::MOI.VectorAffineTerm): ", variable_index_value(t.scalar_term));
+#println("--> variable_index_value(t::MOI.VectorAffineTerm): ", variable_index_value(t.scalar_term));
 coefficient(t::MOI.ScalarAffineTerm) = t.coefficient
-println("--> coefficient(t::MOI.ScalarAffineTerm): ", t.coefficient);
+#println("--> coefficient(t::MOI.ScalarAffineTerm): ", t.coefficient);
 coefficient(t::MOI.VectorAffineTerm) = coefficient(t.scalar_term)
-println("--> coefficient(t::MOI.VectorAffineTerm): ", coefficient(t.scalar_term));
+#println("--> coefficient(t::MOI.VectorAffineTerm): ", coefficient(t.scalar_term));
 
 function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
                               f::MOI.VectorAffineFunction,
