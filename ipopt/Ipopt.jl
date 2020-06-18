@@ -144,6 +144,8 @@ function eval_f_wrapper(n::Cint, x_ptr::Ptr{Float64}, new_x::Cint, obj_ptr::Ptr{
     # Fill out the pointer
     unsafe_store!(obj_ptr, new_obj)
     # Done
+    println("--> eval_f_wrapper (prob): ", prob);
+    println("--> eval_f_wrapper (new_obj): ", new_obj);
     return Int32(1)
 end
 
@@ -155,6 +157,8 @@ function eval_g_wrapper(n::Cint, x_ptr::Ptr{Float64}, new_x::Cint, m::Cint, g_pt
     new_g = unsafe_wrap(Array,g_ptr, Int(m))
     prob.eval_g(unsafe_wrap(Array,x_ptr, Int(n)), new_g)
     # Done
+    println("--> eval_g_wrapper (prob): ", prob);
+    println("--> eval_g_wrapper (new_g): ", new_g);
     return Int32(1)
 end
 
@@ -166,6 +170,8 @@ function eval_grad_f_wrapper(n::Cint, x_ptr::Ptr{Float64}, new_x::Cint, grad_f_p
     new_grad_f = unsafe_wrap(Array,grad_f_ptr, Int(n))
     prob.eval_grad_f(unsafe_wrap(Array,x_ptr, Int(n)), new_grad_f)
     # Done
+    println("--> eval_grad_f_wrapper (prob): ", prob);
+    println("--> eval_grad_f_wrapper (new_grad_f): ", new_grad_f);
     return Int32(1)
 end
 
@@ -181,6 +187,12 @@ function eval_jac_g_wrapper(n::Cint, x_ptr::Ptr{Float64}, new_x::Cint, m::Cint, 
     values = unsafe_wrap(Array,values_ptr, Int(nele_jac))
     prob.eval_jac_g(x, mode, rows, cols, values)
     # Done
+    println("--> eval_jac_g_wrapper (prob): ", prob);
+    println("--> eval_jac_g_wrapper (x): ", x);
+    println("--> eval_jac_g_wrapper (mode): ", mode);
+    println("--> eval_jac_g_wrapper (rows): ", rows);
+    println("--> eval_jac_g_wrapper (cols): ", cols);
+    println("--> eval_jac_g_wrapper (values): ", values);
     return Int32(1)
 end
 
@@ -222,6 +234,21 @@ function createProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
     m::Int, g_L::Vector{Float64}, g_U::Vector{Float64},
     nele_jac::Int, nele_hess::Int,
     eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h = nothing)
+    
+    println("--> createProblem (n): ", n);
+    println("--> createProblem (x_L): ", x_L);
+    println("--> createProblem (x_U): ", x_U);
+    println("--> createProblem (m): ", m);
+    println("--> createProblem (g_L): ", g_L);
+    println("--> createProblem (g_U): ", g_U);
+    println("--> createProblem (nele_jac): ", nele_jac);
+    println("--> createProblem (nele_hess): ", nele_hess);
+    println("--> createProblem (eval_f): ", eval_f);
+    println("--> createProblem (eval_g): ", eval_g);
+    println("--> createProblem (eval_grad_f): ", eval_grad_f);
+    println("--> createProblem (eval_jac_g): ", eval_jac_g);
+    println("--> createProblem (eval_h): ", eval_h);
+    
     @assert n == length(x_L) == length(x_U)
     @assert m == length(g_L) == length(g_U)
     # Wrap callbacks
