@@ -76,6 +76,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
 end
 function Optimizer(;kwargs...)
     optimizer = Optimizer(ConeData(), false, nothing, MOISolution(), Options())
+    println("--> Optimizer(ConeData()): ", ConeData());
     for (key, value) in kwargs
         MOI.set(optimizer, MOI.RawParameter(key), value)
     end
@@ -139,6 +140,7 @@ function MOI.empty!(optimizer::Optimizer)
     optimizer.maxsense = false
     optimizer.data = nothing # It should already be nothing except if an error is thrown inside copy_to
     optimizer.cone = ConeData()
+    println("--> MOI.empty(ConeData()): ", ConeData());
     optimizer.sol.ret_val = 0
 end
 
@@ -177,15 +179,22 @@ function get_new_variable_indexes_unique(optimizer::Optimizer, set::SupportedSet
     first = optimizer.cone.cone_cols + 1
     last = optimizer.cone.cone_cols + len
     optimizer.cone.cone_cols += len
+    println("--> get_new_variable_indexes_unique(first): ", first);
+    println("--> get_new_variable_indexes_unique(last): ", last);
+    println("--> get_new_variable_indexes_unique(optimizer.cone.cone_cols): ", optimizer.cone.cone_cols);
     return collect(first:last)
 end
 function get_cone_list(cone::ConeData, set::MOI.PositiveSemidefiniteConeTriangle)
+    println("--> get_cone_list1(cone.sdc): ", cone.sdc);
     return cone.sdc
 end
 function get_cone_list(cone::ConeData, set::MOI.SecondOrderCone)
+    println("--> get_cone_list2(cone.soc): ", cone.soc);
     return cone.soc
 end
 function get_cone_list(optimizer::Optimizer, set::SupportedSets)
+    println("--> get_cone_list3(optimizer.cone): ", optimizer.cone);
+    println("--> get_cone_list3(set): ", set);
     get_cone_list(optimizer.cone, set)
 end
 
@@ -195,6 +204,9 @@ function MOIU.allocate_constrained_variables(optimizer::Optimizer, set::Supporte
     set)
     vars = MOI.VariableIndex.(inds)
     list = get_cone_list(optimizer, set)
+    println("--> MOIU.allocate_constrained_variables(inds): ", inds);
+    println("--> MOIU.allocate_constrained_variables(vars): ", vars);
+    println("--> MOIU.allocate_constrained_variables(list): ", list);
     push!(list, inds)
     ci = MOI.ConstraintIndex{MOI.VectorOfVariables, typeof(set)}(length(list))
     return vars, ci
@@ -208,23 +220,28 @@ end
 
 function _allocate_constraint(cone::ConeData, f, set::SupportedSets)
     list = get_cone_list(cone, set)
+    println("--> _allocate_constraint1_SupportedSets(list): ", list);
     push!(list, Int[])
     return length(list)
 end
 
 function _allocate_constraint(cone::ConeData, f, s::MOI.Zeros)
     len = MOI.dimension(s)
+    println("--> _allocate_constraint2_MOI.Zeros(len): ", len);
     push!(cone.eq_start, cone.eq_tot + 1)
     push!(cone.eq_len, len)
     cone.eq_tot += len
+    println("--> _allocate_constraint2_MOI.Zeros(cone.eq_tot): ", cone.eq_tot);
     return length(cone.eq_len)
 end
 
 function _allocate_constraint(cone::ConeData, f, s::MOI.Nonpositives)
     len = MOI.dimension(s)
+    println("--> _allocate_constraint3_MOI.Nonpositives(len): ", len);
     push!(cone.in_start, cone.in_tot + 1)
     push!(cone.in_len, len)
     cone.in_tot += len
+    println("--> _allocate_constraint3_MOI.Nonpositives(cone.in_tot): ", cone.in_tot);
     return length(cone.in_len)
 end
 
@@ -233,7 +250,9 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     set::SupportedSets)
 
     vec = get_cone_list(optimizer.cone, set)[ci.value]
-
+    println("--> MOIU.load_constraint(f): ", f);
+    println("--> MOIU.load_constraint(set): ", set);
+    println("--> MOIU.load_constraint(vec): ", vec);
     append!(vec, [i.value for i in f.variables])
     nothing
 end
@@ -244,15 +263,23 @@ end
 
 # Vectorized length for matrix dimension n
 sympackedlen(n) = div(n*(n+1), 2)
+println("--> sympackedlen(n): ", sympackedlen(n));
 # Matrix dimension for vectorized length n
 sympackeddim(n) = div(isqrt(1+8n) - 1, 2)
+println("--> sympackeddim(n): ", sympackeddim(n));
 
 output_index(t::MOI.VectorAffineTerm) = t.output_index
+println("--> output_index: ", t.output_index);
 variable_index_value(v::MOI.VariableIndex) = v.value
+println("--> variable_index_value(v::MOI.VariableIndex): ", v.value);
 variable_index_value(t::MOI.ScalarAffineTerm) = t.variable_index.value
+println("--> variable_index_value(t::MOI.ScalarAffineTerm): ", t.variable_index.value);
 variable_index_value(t::MOI.VectorAffineTerm) = variable_index_value(t.scalar_term)
+println("--> variable_index_value(t::MOI.VectorAffineTerm): ", variable_index_value(t.scalar_term));
 coefficient(t::MOI.ScalarAffineTerm) = t.coefficient
+println("--> coefficient(t::MOI.ScalarAffineTerm): ", t.coefficient);
 coefficient(t::MOI.VectorAffineTerm) = coefficient(t.scalar_term)
+println("--> coefficient(t::MOI.VectorAffineTerm): ", coefficient(t.scalar_term));
 
 function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
                               f::MOI.VectorAffineFunction,
@@ -264,11 +291,17 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     dropzeros!(A)
     println("--> MOIU.load_constraint (A)", A);
     I, J, V = findnz(A)
+    println("--> MOIU.load_constraint (I)", I);
+    println("--> MOIU.load_constraint (J)", J);
+    println("--> MOIU.load_constraint (V)", V);
     offset = ctr_offset(optimizer, set, ci)
     rows = 1:len(optimizer, set, ci)
     i = (offset-1) .+ rows
-
+    println("--> MOIU.load_constraint (i)", i);
+    println("--> coefficient(t::MOI.VectorAffineTerm): ", coefficient(t.scalar_term)); 
+    
     rhs = matrix_rhs_vec(optimizer, set)
+    println("--> MOIU.load_constraint (rhs)", rhs);
     rhs[i] .= -f.constants
 
     # MOI:  Ax + b {==, <=} 0
@@ -277,7 +310,9 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     append!(I_, offset-1 .+ I)
     append!(J_, J)
     append!(V_, V)
-
+    println("--> MOIU.load_constraint (I_)", I_);
+    println("--> MOIU.load_constraint (J_)", J_);
+    println("--> MOIU.load_constraint (V_)", V_);
     nothing
 end
 function ctr_offset(optimizer::Optimizer, set::MOI.Zeros, ci)
