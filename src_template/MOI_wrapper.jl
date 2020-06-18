@@ -290,7 +290,7 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     # sparse combines duplicates with + but does
     # not remove zeros created so we call dropzeros!
     dropzeros!(A)
-    println("--> MOIU.load_constraint (A)", A);
+    println("--> MOIU.load_constraint (A): ", A);
     I, J, V = findnz(A)
     println("--> MOIU.load_constraint (I)", I);
     println("--> MOIU.load_constraint (J)", J);
@@ -298,12 +298,15 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     offset = ctr_offset(optimizer, set, ci)
     rows = 1:len(optimizer, set, ci)
     i = (offset-1) .+ rows
-    println("--> MOIU.load_constraint (i)", i);
-    println("--> coefficient(t::MOI.VectorAffineTerm): ", coefficient(t.scalar_term)); 
+    println("--> MOIU.load_constraint (offset): ", offset); 
+    println("--> MOIU.load_constraint (rows): ", rows); 
+    println("--> MOIU.load_constraint (i): ", i);
+    
     
     rhs = matrix_rhs_vec(optimizer, set)
-    println("--> MOIU.load_constraint (rhs)", rhs);
+    println("--> MOIU.load_constraint before (rhs): ", rhs);
     rhs[i] .= -f.constants
+    println("--> MOIU.load_constraint after (rhs): ", rhs);
 
     # MOI:  Ax + b {==, <=} 0
     # psdp: Ax {==, <=} -b
@@ -311,9 +314,9 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     append!(I_, offset-1 .+ I)
     append!(J_, J)
     append!(V_, V)
-    println("--> MOIU.load_constraint (I_)", I_);
-    println("--> MOIU.load_constraint (J_)", J_);
-    println("--> MOIU.load_constraint (V_)", V_);
+    println("--> MOIU.load_constraint (I_): ", I_);
+    println("--> MOIU.load_constraint (J_): ", J_);
+    println("--> MOIU.load_constraint (V_): ", V_);
     nothing
 end
 function ctr_offset(optimizer::Optimizer, set::MOI.Zeros, ci)
