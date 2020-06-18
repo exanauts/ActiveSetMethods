@@ -262,6 +262,7 @@ function MOIU.load_constraint(optimizer::Optimizer, ci::CI,
     # sparse combines duplicates with + but does
     # not remove zeros created so we call dropzeros!
     dropzeros!(A)
+    println("--> MOIU.load_constraint (A)", A);
     I, J, V = findnz(A)
     offset = ctr_offset(optimizer, set, ci)
     rows = 1:len(optimizer, set, ci)
