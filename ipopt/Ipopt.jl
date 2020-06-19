@@ -188,11 +188,11 @@ function eval_jac_g_wrapper(n::Cint, x_ptr::Ptr{Float64}, new_x::Cint, m::Cint, 
     prob.eval_jac_g(x, mode, rows, cols, values)
     # Done
     println("--> eval_jac_g_wrapper (prob): ", prob);
-    println("--> eval_jac_g_wrapper (x): ", x);
-    println("--> eval_jac_g_wrapper (mode): ", mode);
-    println("--> eval_jac_g_wrapper (rows): ", rows);
-    println("--> eval_jac_g_wrapper (cols): ", cols);
-    println("--> eval_jac_g_wrapper (values): ", values);
+    #println("--> eval_jac_g_wrapper (x): ", x);
+    #println("--> eval_jac_g_wrapper (mode): ", mode);
+    #println("--> eval_jac_g_wrapper (rows): ", rows);
+    #println("--> eval_jac_g_wrapper (cols): ", cols);
+    #println("--> eval_jac_g_wrapper (values): ", values);
     return Int32(1)
 end
 
