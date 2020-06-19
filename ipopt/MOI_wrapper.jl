@@ -815,6 +815,7 @@ end
 
 function MOI.optimize!(model::Optimizer)
     # TODO: Reuse model.inner for incremental solves if possible.
+    println("##########--------> MOI.optimize!(model)", model);
     num_variables = length(model.variable_info)
     num_linear_le_constraints = length(model.linear_le_constraints)
     num_linear_ge_constraints = length(model.linear_ge_constraints)
