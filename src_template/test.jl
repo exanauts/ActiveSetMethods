@@ -13,7 +13,8 @@ model = Model(with_optimizer(ProxSDP.Optimizer));
 #@variable(model, Y[1:m]);
 #@variable(model, Z[1:n+m]<=10);
 
-@objective(model, Min, 16 * sum(X));
+@objective(model, Min, 49 * X' * X + 16 * sum(X));
+#@objective(model, Min, 16 * sum(X));
 #@objective(model, Max, 0.9 * sum(X) + 0.16 * sum(Y) + 0.49 * sum(Z));
 
 @constraint(model, 25 * sum(X) + 35 >= 10000);
