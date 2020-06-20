@@ -1,8 +1,9 @@
 import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
+export obj00
 
-
+global obj00
 
 mutable struct VariableInfo
     lower_bound::Float64  # May be -Inf even if has_lower_bound == true
@@ -818,8 +819,9 @@ end
 function MOI.optimize!(model::Optimizer)
     # TODO: Reuse model.inner for incremental solves if possible.
     println("##########--------> MOI.optimize!(model.objective): ", model.objective);
-    println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
-    println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
+    obj00 = model.objective
+    #println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
+    #println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
     num_variables = length(model.variable_info)
     num_linear_le_constraints = length(model.linear_le_constraints)
     num_linear_ge_constraints = length(model.linear_ge_constraints)
