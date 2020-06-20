@@ -2,6 +2,171 @@ import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 
+function MOI.optimize!(model::Optimizer)
+    # TODO: Reuse model.inner for incremental solves if possible.
+    println("##########--------> MOI.optimize!(model.objective): ", model.objective);
+    println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
+    println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
+    num_variables = length(model.variable_info)
+    num_linear_le_constraints = length(model.linear_le_constraints)
+    num_linear_ge_constraints = length(model.linear_ge_constraints)
+    num_linear_eq_constraints = length(model.linear_eq_constraints)
+    nlp_row_offset = nlp_constraint_offset(model)
+    num_quadratic_constraints = nlp_constraint_offset(model) -
+                                quadratic_le_offset(model)
+    num_nlp_constraints = length(model.nlp_data.constraint_bounds)
+    num_constraints = num_nlp_constraints + nlp_row_offset
+
+    evaluator = model.nlp_data.evaluator
+    features = MOI.features_available(evaluator)
+    has_hessian = (:Hess in features)
+    init_feat = [:Grad]
+    has_hessian && push!(init_feat, :Hess)
+    num_nlp_constraints > 0 && push!(init_feat, :Jac)
+
+    MOI.initialize(evaluator, init_feat)
+    jacobian_sparsity = jacobian_structure(model)
+    hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
+
+    # Objective callback
+    if model.sense == MOI.MIN_SENSE
+        objective_scale = 1.0
+    elseif model.sense == MOI.MAX_SENSE
+        objective_scale = -1.0
+    else # FEASIBILITY_SENSE
+        # TODO: This could produce confusing solver output if a nonzero
+        # objective is set.
+        objective_scale = 0.0
+    end
+
+    eval_f_cb(x) = objective_scale * eval_objective(model, x)
+
+    # Objective gradient callback
+    function eval_grad_f_cb(x, grad_f)
+        eval_objective_gradient(model, grad_f, x)
+        rmul!(grad_f,objective_scale)
+    end
+
+    # Constraint value callback
+    eval_g_cb(x, g) = eval_constraint(model, g, x)
+
+    # Jacobian callback
+    function eval_jac_g_cb(x, mode, rows, cols, values)
+        if mode == :Structure
+            for i in 1:length(jacobian_sparsity)
+                rows[i] = jacobian_sparsity[i][1]
+                cols[i] = jacobian_sparsity[i][2]
+            end
+        else
+            eval_constraint_jacobian(model, values, x)
+        end
+    end
+
+    if has_hessian
+        # Hessian callback
+        function eval_h_cb(x, mode, rows, cols, obj_factor,
+            lambda, values)
+            if mode == :Structure
+                for i in 1:length(hessian_sparsity)
+                    rows[i] = hessian_sparsity[i][1]
+                    cols[i] = hessian_sparsity[i][2]
+                end
+            else
+                obj_factor *= objective_scale
+                eval_hessian_lagrangian(model, values, x, obj_factor, lambda)
+            end
+        end
+    else
+        eval_h_cb = nothing
+    end
+
+    x_l = [v.lower_bound for v in model.variable_info]
+    x_u = [v.upper_bound for v in model.variable_info]
+
+    constraint_lb, constraint_ub = constraint_bounds(model)
+
+    start_time = time()
+
+    model.inner = createProblem(num_variables, x_l, x_u, num_constraints,
+                            constraint_lb, constraint_ub,
+                            length(jacobian_sparsity),
+                            length(hessian_sparsity),
+                            eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
+                            eval_h_cb)
+
+    # Ipopt crashes by default if NaN/Inf values are returned from the
+    # evaluation callbacks. This option tells Ipopt to explicitly check for them
+    # and return Invalid_Number_Detected instead. This setting may result in a
+    # minor performance loss and can be overwritten by specifying
+    # check_derivatives_for_naninf="no".
+    addOption(model.inner, "check_derivatives_for_naninf", "yes")
+
+    if !has_hessian
+        addOption(model.inner, "hessian_approximation", "limited-memory")
+    end
+    if num_nlp_constraints == 0 && num_quadratic_constraints == 0
+        addOption(model.inner, "jac_c_constant", "yes")
+        addOption(model.inner, "jac_d_constant", "yes")
+        if !model.nlp_data.has_objective
+            # We turn on this option if all constraints are linear and the
+            # objective is linear or quadratic. From the documentation, it's
+            # unclear if it may also apply if the constraints are at most
+            # quadratic.
+            addOption(model.inner, "hessian_constant", "yes")
+        end
+    end
+
+    # If nothing is provided, the default starting value is 0.0.
+    model.inner.x = zeros(num_variables)
+    for (i, v) in enumerate(model.variable_info)
+        if v.start !== nothing
+            model.inner.x[i] = v.start
+        else
+            if v.has_lower_bound && v.has_upper_bound
+                if 0.0 <= v.lower_bound
+                    model.inner.x[i] = v.lower_bound
+                elseif v.upper_bound <= 0.0
+                    model.inner.x[i] = v.upper_bound
+                end
+            elseif v.has_lower_bound
+                model.inner.x[i] = max(0.0, v.lower_bound)
+            else
+                model.inner.x[i] = min(0.0, v.upper_bound)
+            end
+        end
+    end
+
+    if model.nlp_dual_start === nothing
+        model.nlp_dual_start = zeros(Float64, num_nlp_constraints)
+    end
+
+    mult_g_start = [
+        [info.dual_start for info in model.linear_le_constraints];
+        [info.dual_start for info in model.linear_ge_constraints];
+        [info.dual_start for info in model.linear_eq_constraints];
+        [info.dual_start for info in model.quadratic_le_constraints];
+        [info.dual_start for info in model.quadratic_ge_constraints];
+        [info.dual_start for info in model.quadratic_eq_constraints];
+        model.nlp_dual_start
+    ]
+    model.inner.mult_g = [start === nothing ? 0.0 : start
+                          for start in mult_g_start]
+    model.inner.mult_x_L = [v.lower_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
+                            for v in model.variable_info]
+    model.inner.mult_x_U = [v.upper_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
+                            for v in model.variable_info]
+
+    model.silent && addOption(model.inner, "print_level", 0)
+
+    for (name, value) in model.options
+        addOption(model.inner, name, value)
+    end
+    solveProblem(model.inner)
+
+    model.solve_time = time() - start_time
+    return
+end
+
 mutable struct VariableInfo
     lower_bound::Float64  # May be -Inf even if has_lower_bound == true
     has_lower_bound::Bool # Implies lower_bound == Inf
@@ -811,169 +976,6 @@ function constraint_bounds(model::Optimizer)
         push!(constraint_ub, bound.upper)
     end
     return constraint_lb, constraint_ub
-end
-
-function MOI.optimize!(model::Optimizer)
-    # TODO: Reuse model.inner for incremental solves if possible.
-    println("##########--------> MOI.optimize!(model.objective): ", model.objective);
-    num_variables = length(model.variable_info)
-    num_linear_le_constraints = length(model.linear_le_constraints)
-    num_linear_ge_constraints = length(model.linear_ge_constraints)
-    num_linear_eq_constraints = length(model.linear_eq_constraints)
-    nlp_row_offset = nlp_constraint_offset(model)
-    num_quadratic_constraints = nlp_constraint_offset(model) -
-                                quadratic_le_offset(model)
-    num_nlp_constraints = length(model.nlp_data.constraint_bounds)
-    num_constraints = num_nlp_constraints + nlp_row_offset
-
-    evaluator = model.nlp_data.evaluator
-    features = MOI.features_available(evaluator)
-    has_hessian = (:Hess in features)
-    init_feat = [:Grad]
-    has_hessian && push!(init_feat, :Hess)
-    num_nlp_constraints > 0 && push!(init_feat, :Jac)
-
-    MOI.initialize(evaluator, init_feat)
-    jacobian_sparsity = jacobian_structure(model)
-    hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
-
-    # Objective callback
-    if model.sense == MOI.MIN_SENSE
-        objective_scale = 1.0
-    elseif model.sense == MOI.MAX_SENSE
-        objective_scale = -1.0
-    else # FEASIBILITY_SENSE
-        # TODO: This could produce confusing solver output if a nonzero
-        # objective is set.
-        objective_scale = 0.0
-    end
-
-    eval_f_cb(x) = objective_scale * eval_objective(model, x)
-
-    # Objective gradient callback
-    function eval_grad_f_cb(x, grad_f)
-        eval_objective_gradient(model, grad_f, x)
-        rmul!(grad_f,objective_scale)
-    end
-
-    # Constraint value callback
-    eval_g_cb(x, g) = eval_constraint(model, g, x)
-
-    # Jacobian callback
-    function eval_jac_g_cb(x, mode, rows, cols, values)
-        if mode == :Structure
-            for i in 1:length(jacobian_sparsity)
-                rows[i] = jacobian_sparsity[i][1]
-                cols[i] = jacobian_sparsity[i][2]
-            end
-        else
-            eval_constraint_jacobian(model, values, x)
-        end
-    end
-
-    if has_hessian
-        # Hessian callback
-        function eval_h_cb(x, mode, rows, cols, obj_factor,
-            lambda, values)
-            if mode == :Structure
-                for i in 1:length(hessian_sparsity)
-                    rows[i] = hessian_sparsity[i][1]
-                    cols[i] = hessian_sparsity[i][2]
-                end
-            else
-                obj_factor *= objective_scale
-                eval_hessian_lagrangian(model, values, x, obj_factor, lambda)
-            end
-        end
-    else
-        eval_h_cb = nothing
-    end
-
-    x_l = [v.lower_bound for v in model.variable_info]
-    x_u = [v.upper_bound for v in model.variable_info]
-
-    constraint_lb, constraint_ub = constraint_bounds(model)
-
-    start_time = time()
-
-    model.inner = createProblem(num_variables, x_l, x_u, num_constraints,
-                            constraint_lb, constraint_ub,
-                            length(jacobian_sparsity),
-                            length(hessian_sparsity),
-                            eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
-                            eval_h_cb)
-
-    # Ipopt crashes by default if NaN/Inf values are returned from the
-    # evaluation callbacks. This option tells Ipopt to explicitly check for them
-    # and return Invalid_Number_Detected instead. This setting may result in a
-    # minor performance loss and can be overwritten by specifying
-    # check_derivatives_for_naninf="no".
-    addOption(model.inner, "check_derivatives_for_naninf", "yes")
-
-    if !has_hessian
-        addOption(model.inner, "hessian_approximation", "limited-memory")
-    end
-    if num_nlp_constraints == 0 && num_quadratic_constraints == 0
-        addOption(model.inner, "jac_c_constant", "yes")
-        addOption(model.inner, "jac_d_constant", "yes")
-        if !model.nlp_data.has_objective
-            # We turn on this option if all constraints are linear and the
-            # objective is linear or quadratic. From the documentation, it's
-            # unclear if it may also apply if the constraints are at most
-            # quadratic.
-            addOption(model.inner, "hessian_constant", "yes")
-        end
-    end
-
-    # If nothing is provided, the default starting value is 0.0.
-    model.inner.x = zeros(num_variables)
-    for (i, v) in enumerate(model.variable_info)
-        if v.start !== nothing
-            model.inner.x[i] = v.start
-        else
-            if v.has_lower_bound && v.has_upper_bound
-                if 0.0 <= v.lower_bound
-                    model.inner.x[i] = v.lower_bound
-                elseif v.upper_bound <= 0.0
-                    model.inner.x[i] = v.upper_bound
-                end
-            elseif v.has_lower_bound
-                model.inner.x[i] = max(0.0, v.lower_bound)
-            else
-                model.inner.x[i] = min(0.0, v.upper_bound)
-            end
-        end
-    end
-
-    if model.nlp_dual_start === nothing
-        model.nlp_dual_start = zeros(Float64, num_nlp_constraints)
-    end
-
-    mult_g_start = [
-        [info.dual_start for info in model.linear_le_constraints];
-        [info.dual_start for info in model.linear_ge_constraints];
-        [info.dual_start for info in model.linear_eq_constraints];
-        [info.dual_start for info in model.quadratic_le_constraints];
-        [info.dual_start for info in model.quadratic_ge_constraints];
-        [info.dual_start for info in model.quadratic_eq_constraints];
-        model.nlp_dual_start
-    ]
-    model.inner.mult_g = [start === nothing ? 0.0 : start
-                          for start in mult_g_start]
-    model.inner.mult_x_L = [v.lower_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
-                            for v in model.variable_info]
-    model.inner.mult_x_U = [v.upper_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
-                            for v in model.variable_info]
-
-    model.silent && addOption(model.inner, "print_level", 0)
-
-    for (name, value) in model.options
-        addOption(model.inner, name, value)
-    end
-    solveProblem(model.inner)
-
-    model.solve_time = time() - start_time
-    return
 end
 
 function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
