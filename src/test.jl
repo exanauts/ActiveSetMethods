@@ -5,7 +5,7 @@ using Slopt
 n=3
 m=4
 
-model = Model(with_optimizer(Ipopt.Optimizer));
+model = Model(with_optimizer(Slopt.Optimizer));
 
 
 #@variable(model, X[1:n, 1:n]);
