@@ -391,6 +391,7 @@ function solveProblem(prob::IpoptProblem)
     prob.ref, prob.x, prob.g, final_objval, prob.mult_g, prob.mult_x_L, prob.mult_x_U, prob)
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
+    println("####---->solveProblem(ret)", ret);
 
     return Int(ret)
 end
