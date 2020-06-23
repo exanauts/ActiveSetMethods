@@ -6,9 +6,8 @@ Slopt is a nonlinear solver based on sequential linear programming method.
 
 For example, consider the following quadratic optimization problem
 ```
-        max   x2+x + 0.25 * W•X
-        s.t.  diag(X) = 1,
-        X ≽ 0,
+        min   x2 + x 
+        s.t.  x2 - x = 2,
 ```
 This problem can be solved by the following code using **Slopt** and [JuMP](https://github.com/JuliaOpt/JuMP.jl).
 ```julia
