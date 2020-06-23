@@ -2,7 +2,6 @@ module Slopt
 export slopt_status
 using Libdl
 using LinearAlgebra
-include("MOI_wrapper.jl")
 
 if VERSION < v"1.3" || (haskey(ENV, "JULIA_IPOPT_LIBRARY_PATH") && haskey(ENV, "JULIA_IPOPT_EXECUTABLE_PATH"))
     if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
@@ -385,7 +384,7 @@ function setIntermediateCallback(prob::IpoptProblem, intermediate::Function)
 end
 
 
-function solveProblem(model::Optimizer)
+#=function solveProblem(model::Optimizer)
     prob = model.inner
     final_objval = [0.0]
     ret = 0;
@@ -416,8 +415,9 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(ret)", ret);
 
     return Int(ret)
-end
+ end =#
 
+include("MOI_wrapper.jl")
 #include("MPB_wrapper.jl")
 
 function slopt_status()
