@@ -823,17 +823,17 @@ function MOI.optimize!(model::Optimizer)
     #println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
     #println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
     println("Optimize! initial begin .....");
-    println("variable_info", variable_info);
-    println("nlp_data", nlp_data);
-    println("sense", sense);
-    println("objective", objective);
-    println("linear_le_constraints", linear_le_constraints);
-    println("linear_ge_constraints", linear_ge_constraints);
-    println("linear_eq_constraints",  linear_eq_constraints);
-    println("quadratic_le_constraints", quadratic_le_constraints);
-    println("quadratic_ge_constraints", quadratic_ge_constraints);
-    println("quadratic_eq_constraints", quadratic_eq_constraints);
-    println("nlp_dual_start", nlp_dual_start);
+    println("variable_info", model.variable_info);
+    println("nlp_data", model.nlp_data);
+    println("sense", model.sense);
+    println("objective", model.objective);
+    println("linear_le_constraints", model.linear_le_constraints);
+    println("linear_ge_constraints", model.linear_ge_constraints);
+    println("linear_eq_constraints",  model.linear_eq_constraints);
+    println("quadratic_le_constraints", model.quadratic_le_constraints);
+    println("quadratic_ge_constraints", model.quadratic_ge_constraints);
+    println("quadratic_eq_constraints", model.quadratic_eq_constraints);
+    println("nlp_dual_start", model.nlp_dual_start);
     println("..... Optimize! initial End");
     
     
@@ -996,17 +996,17 @@ function MOI.optimize!(model::Optimizer)
     model.solve_time = time() - start_time
     
     println("Optimize! final begin .....");
-    println("variable_info", variable_info);
-    println("nlp_data", nlp_data);
-    println("sense", sense);
-    println("objective", objective);
-    println("linear_le_constraints", linear_le_constraints);
-    println("linear_ge_constraints", linear_ge_constraints);
-    println("linear_eq_constraints",  linear_eq_constraints);
-    println("quadratic_le_constraints", quadratic_le_constraints);
-    println("quadratic_ge_constraints", quadratic_ge_constraints);
-    println("quadratic_eq_constraints", quadratic_eq_constraints);
-    println("nlp_dual_start", nlp_dual_start);
+    println("variable_info", model.variable_info);
+    println("nlp_data", model.nlp_data);
+    println("sense", model.sense);
+    println("objective", model.objective);
+    println("linear_le_constraints", model.linear_le_constraints);
+    println("linear_ge_constraints", model.linear_ge_constraints);
+    println("linear_eq_constraints",  model.linear_eq_constraints);
+    println("quadratic_le_constraints", model.quadratic_le_constraints);
+    println("quadratic_ge_constraints", model.quadratic_ge_constraints);
+    println("quadratic_eq_constraints", model.quadratic_eq_constraints);
+    println("nlp_dual_start", model.nlp_dual_start);
     println("..... Optimize! final End");
     
     return
