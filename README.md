@@ -1,4 +1,4 @@
-# SuccessiveLinearApproximation
+# Slopt
 
 Slopt is a nonlinear solver based on sequential linear programming method. 
 
@@ -6,7 +6,7 @@ Slopt is a nonlinear solver based on sequential linear programming method.
 
 For example, consider the following quadratic optimization problem
 ```
-    max   0.25 * W•X
+    max   x^2 + 0.25 * W•X
     s.t.  diag(X) = 1,
           X ≽ 0,
 ```
