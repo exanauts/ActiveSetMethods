@@ -1,9 +1,6 @@
 import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
-export obj00
-
-global obj00
 
 mutable struct VariableInfo
     lower_bound::Float64  # May be -Inf even if has_lower_bound == true
