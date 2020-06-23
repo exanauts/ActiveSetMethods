@@ -386,9 +386,10 @@ end
 
 function solveProblem(prob::IpoptProblem)
     final_objval = [0.0]
-    ret = ccall((:IpoptSolve, libipopt),
-    Cint, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Any),
-    prob.ref, prob.x, prob.g, final_objval, prob.mult_g, prob.mult_x_L, prob.mult_x_U, prob)
+    ret = 0;
+    #ret = ccall((:IpoptSolve, libipopt),
+    #Cint, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Any),
+    #prob.ref, prob.x, prob.g, final_objval, prob.mult_g, prob.mult_x_L, prob.mult_x_U, prob)
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
     println("####---->solveProblem(ret)", ret);
