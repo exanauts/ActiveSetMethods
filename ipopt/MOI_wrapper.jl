@@ -834,6 +834,9 @@ function MOI.optimize!(model::Optimizer)
     println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
     println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
     println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
+    println("##########-------->silent: ", model.silent);
+    println("##########-------->options: ", model.options);
+    println("##########-------->solve_time: ", model.solve_time);  
     println("..... Optimize! initial End");
     
     
@@ -1007,6 +1010,9 @@ function MOI.optimize!(model::Optimizer)
     println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
     println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
     println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
+    println("##########-------->silent: ", model.silent);
+    println("##########-------->options: ", model.options);
+    println("##########-------->solve_time: ", model.solve_time);  
     println("..... Optimize! final End");
     
     return
