@@ -390,6 +390,13 @@ function solveProblem(prob::IpoptProblem)
     #ret = ccall((:IpoptSolve, libipopt),
     #Cint, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Any),
     #prob.ref, prob.x, prob.g, final_objval, prob.mult_g, prob.mult_x_L, prob.mult_x_U, prob)
+    println("####---->solveProblem(prob.ref)", prob.ref);
+    println("####---->solveProblem(prob.x)", prob.x);
+    println("####---->solveProblem(prob.g)", prob.g);
+    println("####---->solveProblem(final_objval)", final_objval);
+    println("####---->solveProblem(prob.mult_g)", prob.mult_g);
+    println("####---->solveProblem(prob.mult_x_L)", prob.mult_x_L);
+    println("####---->solveProblem(prob.mult_x_U)", prob.mult_x_U);
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
     println("####---->solveProblem(ret)", ret);
