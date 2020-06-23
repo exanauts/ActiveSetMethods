@@ -818,10 +818,25 @@ end
 
 function MOI.optimize!(model::Optimizer)
     # TODO: Reuse model.inner for incremental solves if possible.
-    println("##########--------> MOI.optimize!(model.objective): ", model.objective);
-    obj00 = model.objective
+    #println("##########--------> MOI.optimize!(model.objective): ", model.objective);
+    #obj00 = model.objective
     #println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
     #println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
+    println("Optimize! initial begin .....");
+    println("variable_info", variable_info);
+    println("nlp_data", nlp_data);
+    println("sense", sense);
+    println("objective", objective);
+    println("linear_le_constraints", linear_le_constraints);
+    println("linear_ge_constraints", linear_ge_constraints);
+    println("linear_eq_constraints",  linear_eq_constraints);
+    println("quadratic_le_constraints", quadratic_le_constraints);
+    println("quadratic_ge_constraints", quadratic_ge_constraints);
+    println("quadratic_eq_constraints", quadratic_eq_constraints);
+    println("nlp_dual_start", nlp_dual_start);
+    println("..... Optimize! initial End");
+    
+    
     num_variables = length(model.variable_info)
     num_linear_le_constraints = length(model.linear_le_constraints)
     num_linear_ge_constraints = length(model.linear_ge_constraints)
@@ -979,6 +994,21 @@ function MOI.optimize!(model::Optimizer)
     solveProblem(model.inner)
 
     model.solve_time = time() - start_time
+    
+    println("Optimize! final begin .....");
+    println("variable_info", variable_info);
+    println("nlp_data", nlp_data);
+    println("sense", sense);
+    println("objective", objective);
+    println("linear_le_constraints", linear_le_constraints);
+    println("linear_ge_constraints", linear_ge_constraints);
+    println("linear_eq_constraints",  linear_eq_constraints);
+    println("quadratic_le_constraints", quadratic_le_constraints);
+    println("quadratic_ge_constraints", quadratic_ge_constraints);
+    println("quadratic_eq_constraints", quadratic_eq_constraints);
+    println("nlp_dual_start", nlp_dual_start);
+    println("..... Optimize! final End");
+    
     return
 end
 
