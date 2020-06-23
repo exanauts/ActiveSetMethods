@@ -395,7 +395,8 @@ function solveProblem(prob::IpoptProblem)
     return Int(ret)
 end
 
-include("MPB_wrapper.jl")
+#include("MPB_wrapper.jl")
+include("MOI_wrapper.jl")
 
 function slopt_status()
 println("Slopt module has been loaded successfully ...")
