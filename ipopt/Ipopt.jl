@@ -187,7 +187,7 @@ function eval_jac_g_wrapper(n::Cint, x_ptr::Ptr{Float64}, new_x::Cint, m::Cint, 
     values = unsafe_wrap(Array,values_ptr, Int(nele_jac))
     prob.eval_jac_g(x, mode, rows, cols, values)
     # Done
-    println("--> eval_jac_g_wrapper (prob): ", prob);
+    #println("--> eval_jac_g_wrapper (prob): ", prob);
     #println("--> eval_jac_g_wrapper (x): ", x);
     #println("--> eval_jac_g_wrapper (mode): ", mode);
     #println("--> eval_jac_g_wrapper (rows): ", rows);
