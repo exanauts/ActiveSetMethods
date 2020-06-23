@@ -950,6 +950,7 @@ function MOI.optimize!(model::Optimizer)
                             length(hessian_sparsity),
                             eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
                             eval_h_cb)
+    println("##########-----********--->created model.innern: ", model.inner);
 
     # Ipopt crashes by default if NaN/Inf values are returned from the
     # evaluation callbacks. This option tells Ipopt to explicitly check for them
@@ -1018,7 +1019,12 @@ function MOI.optimize!(model::Optimizer)
     for (name, value) in model.options
         addOption(model.inner, name, value)
     end
+    
+    println("##########-----********--->before solve model.innern: ", model.inner);
+    
     solveProblem(model.inner)
+    
+    println("##########-----********--->after solve model.innern: ", model.inner);
 
     model.solve_time = time() - start_time
     
