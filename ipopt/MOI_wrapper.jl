@@ -823,10 +823,13 @@ function MOI.optimize!(model::Optimizer)
     #println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
     #println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
     println("Optimize! initial begin .....");
+    println("##########-------->inner: ", model.inner);
     println("##########-------->variable_info: ", model.variable_info);
     println("##########-------->nlp_data: ", model.nlp_data);
     println("##########-------->sense: ", model.sense);
     println("##########-------->objective: ", model.objective);
+    println("##########-------->objective.quadratic_terms: ", model.objective.quadratic_terms);
+    println("##########-------->objective.affine_terms: ", model.objective.affine_terms);
     println("##########-------->linear_le_constraints: ", model.linear_le_constraints);
     println("##########-------->linear_ge_constraints: ", model.linear_ge_constraints);
     println("##########-------->linear_eq_constraints: ",  model.linear_eq_constraints);
@@ -999,6 +1002,7 @@ function MOI.optimize!(model::Optimizer)
     model.solve_time = time() - start_time
     
     println("Optimize! final begin .....");
+    println("##########-------->inner: ", model.inner);
     println("##########-------->variable_info: ", model.variable_info);
     println("##########-------->nlp_data: ", model.nlp_data);
     println("##########-------->sense: ", model.sense);
