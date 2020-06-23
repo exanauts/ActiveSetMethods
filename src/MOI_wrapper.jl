@@ -815,19 +815,30 @@ end
 
 function MOI.optimize!(model::Optimizer)
     # TODO: Reuse model.inner for incremental solves if possible.
+    #println("##########--------> MOI.optimize!(model.objective): ", model.objective);
+    #obj00 = model.objective
+    #println("##########--------> MOI.optimize!(len(model.objective)): ", length(model.objective));
+    #println("##########--------> MOI.optimize!(len(model.objective)): ", model.objective[1]);
     println("Optimize! initial begin .....");
-    println("variable_info", variable_info);
-    println("nlp_data", nlp_data);
-    println("sense", sense);
-    println("objective", objective);
-    println("linear_le_constraints", linear_le_constraints);
-    println("linear_ge_constraints", linear_ge_constraints);
-    println("linear_eq_constraints",  linear_eq_constraints);
-    println("quadratic_le_constraints", quadratic_le_constraints);
-    println("quadratic_ge_constraints", quadratic_ge_constraints);
-    println("quadratic_eq_constraints", quadratic_eq_constraints);
-    println("nlp_dual_start", nlp_dual_start);
+    println("##########-------->inner: ", model.inner);
+    println("##########-------->variable_info: ", model.variable_info);
+    println("##########-------->nlp_data: ", model.nlp_data);
+    println("##########-------->sense: ", model.sense);
+    println("##########-------->objective: ", model.objective);
+    println("##########-------->objective.quadratic_terms: ", model.objective.quadratic_terms);
+    println("##########-------->objective.affine_terms: ", model.objective.affine_terms);
+    println("##########-------->linear_le_constraints: ", model.linear_le_constraints);
+    println("##########-------->linear_ge_constraints: ", model.linear_ge_constraints);
+    println("##########-------->linear_eq_constraints: ",  model.linear_eq_constraints);
+    println("##########-------->quadratic_le_constraints: ", model.quadratic_le_constraints);
+    println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
+    println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
+    println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
+    println("##########-------->silent: ", model.silent);
+    println("##########-------->options: ", model.options);
+    println("##########-------->solve_time: ", model.solve_time);  
     println("..... Optimize! initial End");
+    
     
     num_variables = length(model.variable_info)
     num_linear_le_constraints = length(model.linear_le_constraints)
@@ -846,10 +857,28 @@ function MOI.optimize!(model::Optimizer)
     has_hessian && push!(init_feat, :Hess)
     num_nlp_constraints > 0 && push!(init_feat, :Jac)
 
-    # #MOI.initialize(evaluator, init_feat)
+    MOI.initialize(evaluator, init_feat)
     jacobian_sparsity = jacobian_structure(model)
     hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
+    
+    println(" Optimize! Parameters Begin ----");
+    println("##########-------->num_variables: ", num_variables);
+    println("##########-------->num_linear_le_constraints: ", num_linear_le_constraints);
+    println("##########-------->num_linear_ge_constraints: ", num_linear_ge_constraints);
+    println("##########-------->num_linear_eq_constraints: ", num_linear_eq_constraints);
+    println("##########-------->nlp_row_offset: ", nlp_row_offset);
+    println("##########-------->num_quadratic_constraints: ", num_quadratic_constraints);
+    println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
+    println("##########-------->num_constraints: ", num_constraints);
 
+    println("##########-------->features: ", features);
+    println("##########-------->has_hessian: ", has_hessian);
+    println("##########-------->init_feat: ", init_feat);
+    println("##########-------->has_hessian: ", has_hessian);
+    println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
+    
+   
+    println(" ---- Optimize! Parameters End");
     # Objective callback
     if model.sense == MOI.MIN_SENSE
         objective_scale = 1.0
@@ -906,6 +935,12 @@ function MOI.optimize!(model::Optimizer)
     x_u = [v.upper_bound for v in model.variable_info]
 
     constraint_lb, constraint_ub = constraint_bounds(model)
+    
+    println("##########-------->x_l: ", x_l);
+    println("##########-------->x_u: ", x_u);
+    println("##########-------->constraint_lb: ", constraint_lb);
+    println("##########-------->constraint_ub: ", constraint_ub);
+    println(" ---- Optimize! Parameters End");
 
     start_time = time()
 
@@ -915,6 +950,7 @@ function MOI.optimize!(model::Optimizer)
                             length(hessian_sparsity),
                             eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
                             eval_h_cb)
+    println("##########-----********--->created model.innern: ", model.inner);
 
     # Ipopt crashes by default if NaN/Inf values are returned from the
     # evaluation callbacks. This option tells Ipopt to explicitly check for them
@@ -983,9 +1019,33 @@ function MOI.optimize!(model::Optimizer)
     for (name, value) in model.options
         addOption(model.inner, name, value)
     end
+    
+    println("##########-----********--->before solve model.innern: ", model.inner);
+    
     solveProblem(model.inner)
+    
+    println("##########-----********--->after solve model.innern: ", model.inner);
 
     model.solve_time = time() - start_time
+    
+    println("Optimize! final begin .....");
+    println("##########-------->inner: ", model.inner);
+    println("##########-------->variable_info: ", model.variable_info);
+    println("##########-------->nlp_data: ", model.nlp_data);
+    println("##########-------->sense: ", model.sense);
+    println("##########-------->objective: ", model.objective);
+    println("##########-------->linear_le_constraints: ", model.linear_le_constraints);
+    println("##########-------->linear_ge_constraints: ", model.linear_ge_constraints);
+    println("##########-------->linear_eq_constraints: ",  model.linear_eq_constraints);
+    println("##########-------->quadratic_le_constraints: ", model.quadratic_le_constraints);
+    println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
+    println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
+    println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
+    println("##########-------->silent: ", model.silent);
+    println("##########-------->options: ", model.options);
+    println("##########-------->solve_time: ", model.solve_time);  
+    println("..... Optimize! final End");
+    
     return
 end
 
