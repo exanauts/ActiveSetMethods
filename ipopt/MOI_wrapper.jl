@@ -860,7 +860,25 @@ function MOI.optimize!(model::Optimizer)
     MOI.initialize(evaluator, init_feat)
     jacobian_sparsity = jacobian_structure(model)
     hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
+    
+    println(" Optimize! Parameters Begin ----");
+    println("##########-------->num_variables: ", num_variables);
+    println("##########-------->num_linear_le_constraints: ", num_linear_le_constraints);
+    println("##########-------->num_linear_ge_constraints: ", num_linear_ge_constraints);
+    println("##########-------->num_linear_eq_constraints: ", num_linear_eq_constraints);
+    println("##########-------->nlp_row_offset: ", nlp_row_offset);
+    println("##########-------->num_quadratic_constraints: ", num_quadratic_constraints);
+    println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
+    println("##########-------->num_constraints: ", num_constraints);
 
+    println("##########-------->features: ", features);
+    println("##########-------->has_hessian: ", has_hessian);
+    println("##########-------->init_feat: ", init_feat);
+    println("##########-------->has_hessian: ", has_hessian);
+    println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
+    
+   
+    println(" ---- Optimize! Parameters End");
     # Objective callback
     if model.sense == MOI.MIN_SENSE
         objective_scale = 1.0
@@ -917,6 +935,12 @@ function MOI.optimize!(model::Optimizer)
     x_u = [v.upper_bound for v in model.variable_info]
 
     constraint_lb, constraint_ub = constraint_bounds(model)
+    
+    println("##########-------->x_l: ", x_l);
+    println("##########-------->x_u: ", x_u);
+    println("##########-------->constraint_lb: ", constraint_lb);
+    println("##########-------->constraint_ub: ", constraint_ub);
+    println(" ---- Optimize! Parameters End");
 
     start_time = time()
 
