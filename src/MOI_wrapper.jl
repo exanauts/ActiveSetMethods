@@ -1022,7 +1022,7 @@ function MOI.optimize!(model::Optimizer)
     
     println("##########-----********--->before solve model.innern: ", model.inner);
     
-    solveProblem(model.inner)
+    solveProblem(model)
     
     println("##########-----********--->after solve model.innern: ", model.inner);
 
