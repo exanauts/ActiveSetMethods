@@ -405,6 +405,8 @@ function solveProblem(prob::IpoptProblem)
     println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
+    a = prob.eval_f_cb(4);
+    println("####---->solveProblem(a): ", a);
     println("####---->solveProblem(prob): ", prob);
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
