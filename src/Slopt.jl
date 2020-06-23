@@ -405,7 +405,7 @@ function solveProblem(prob::IpoptProblem)
     println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
-    a = eval_objective(model, [4])
+    a = eval_objective(prob, [4])
     #a = prob.eval_f_cb(4);
     println("####---->solveProblem(a): ", a);
     println("####---->solveProblem(prob): ", prob);
