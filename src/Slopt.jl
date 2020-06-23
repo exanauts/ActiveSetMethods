@@ -390,13 +390,20 @@ function solveProblem(prob::IpoptProblem)
     #ret = ccall((:IpoptSolve, libipopt),
     #Cint, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Any),
     #prob.ref, prob.x, prob.g, final_objval, prob.mult_g, prob.mult_x_L, prob.mult_x_U, prob)
-    println("####---->solveProblem(prob.ref)", prob.ref);
-    println("####---->solveProblem(prob.x)", prob.x);
-    println("####---->solveProblem(prob.g)", prob.g);
-    println("####---->solveProblem(final_objval)", final_objval);
-    println("####---->solveProblem(prob.mult_g)", prob.mult_g);
-    println("####---->solveProblem(prob.mult_x_L)", prob.mult_x_L);
-    println("####---->solveProblem(prob.mult_x_U)", prob.mult_x_U);
+    println("####---->solveProblem(prob.ref): ", prob.ref);
+    println("####---->solveProblem(typeof(prob.ref)): ", typeof(prob.ref));
+    println("####---->solveProblem(prob.x): ", prob.x);
+    println("####---->solveProblem(typeof(prob.x)): ", typeof(prob.x));
+    println("####---->solveProblem(prob.g): ", prob.g);
+    println("####---->solveProblem(typeof(prob.g)): ", typeof(prob.g));
+    println("####---->solveProblem(final_objval): ", final_objval);
+    println("####---->solveProblem(typeof(final_objval)): ", typeof(final_objval));
+    println("####---->solveProblem(prob.mult_g): ", prob.mult_g);
+    println("####---->solveProblem(typeof(prob.mult_g)): ", typeof(prob.mult_g));
+    println("####---->solveProblem(prob.mult_x_L): ", prob.mult_x_L);
+    println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
+    println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
+    println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
     println("####---->solveProblem(ret)", ret);
