@@ -47,7 +47,6 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     solve_time::Float64
 end
 
-#=
 struct EmptyNLPEvaluator <: MOI.AbstractNLPEvaluator end
 MOI.features_available(::EmptyNLPEvaluator) = [:Grad, :Jac, :Hess]
 MOI.initialize(::EmptyNLPEvaluator, features) = nothing
@@ -813,7 +812,6 @@ function constraint_bounds(model::Optimizer)
     end
     return constraint_lb, constraint_ub
 end
-=#
 
 function MOI.optimize!(model::Optimizer)
     # TODO: Reuse model.inner for incremental solves if possible.
