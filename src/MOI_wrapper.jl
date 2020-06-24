@@ -999,7 +999,7 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
-    x = = zeros(num_variables)
+    x = zeros(num_variables)
     f = eval_f_cb(x);
     #df = eval_g_cb(x)
     #E = 
