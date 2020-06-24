@@ -816,6 +816,28 @@ end
 function solveProblem(model::Optimizer)
     
     #
+    
+    num_variables = length(model.variable_info)
+    num_linear_le_constraints = length(model.linear_le_constraints)
+    num_linear_ge_constraints = length(model.linear_ge_constraints)
+    num_linear_eq_constraints = length(model.linear_eq_constraints)
+    nlp_row_offset = nlp_constraint_offset(model)
+    num_quadratic_constraints = nlp_constraint_offset(model) -
+                                quadratic_le_offset(model)
+    num_nlp_constraints = length(model.nlp_data.constraint_bounds)
+    num_constraints = num_nlp_constraints + nlp_row_offset
+
+    evaluator = model.nlp_data.evaluator
+    features = MOI.features_available(evaluator)
+    has_hessian = (:Hess in features)
+    init_feat = [:Grad]
+    has_hessian && push!(init_feat, :Hess)
+    num_nlp_constraints > 0 && push!(init_feat, :Jac)
+
+    MOI.initialize(evaluator, init_feat)
+    jacobian_sparsity = jacobian_structure(model)
+    hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
+    
     if model.sense == MOI.MIN_SENSE
         objective_scale = 1.0
     elseif model.sense == MOI.MAX_SENSE
