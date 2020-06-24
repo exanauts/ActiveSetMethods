@@ -999,13 +999,16 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
-    #f = 
-    #df = 
+    x = = zeros(num_variables)
+    f = eval_f_cb(x);
+    #df = eval_g_cb(x)
     #E = 
     #dE = 
     #H = 
     a = eval_objective(model, [4])
+    gx = eval_g_cb([4], 2)
     #a = prob.eval_f_cb(4);
+    println("####---->solveProblem(gx): ", gx);
     println("####---->solveProblem(a): ", a);
     println("####---->solveProblem(prob): ", prob);
     prob.obj_val = final_objval[1]
