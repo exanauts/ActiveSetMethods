@@ -900,7 +900,6 @@ function solveProblem(model::Optimizer)
     println("##########-------->constraint_ub: ", constraint_ub);
     println(" ---- Optimize! Parameters End");
 
-    start_time = time()
 
     model.inner = createProblem(num_variables, x_l, x_u, num_constraints,
                             constraint_lb, constraint_ub,
@@ -1080,7 +1079,7 @@ function MOI.optimize!(model::Optimizer)
     println("##########-------->has_hessian: ", has_hessian);
     println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
     
-   
+    start_time = time()
     println(" ---- Optimize! Parameters End");
     #= Objective callback
     if model.sense == MOI.MIN_SENSE
