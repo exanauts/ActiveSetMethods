@@ -676,6 +676,9 @@ macro eval_function(array_name)
 end
 
 function eval_constraint(model::Optimizer, g, x)
+    println("-----######------>eval_constraint(g): ", g);
+    println("-----######------>eval_constraint(x): ", x);
+    println("-----######------>eval_constraint1(model): ", model);
     row = 1
     @eval_function model.linear_le_constraints
     @eval_function model.linear_ge_constraints
@@ -683,8 +686,14 @@ function eval_constraint(model::Optimizer, g, x)
     @eval_function model.quadratic_le_constraints
     @eval_function model.quadratic_ge_constraints
     @eval_function model.quadratic_eq_constraints
+    println("-----######------>eval_constraint2(model): ", model);
     nlp_g = view(g, row:length(g))
+    println("-----######------>eval_constraint(row): ", row);
+    println("-----######------>eval_constraint(g): ", g);
+    println("-----######------>eval_constraint(nlp_g): ", nlp_g);
     MOI.eval_constraint(model.nlp_data.evaluator, nlp_g, x)
+    println("-----######------>eval_constraint3(model): ", model);
+    println("-----######------>eval_constraint(g): ", g);
     return
 end
 
@@ -1009,10 +1018,10 @@ function solveProblem(model::Optimizer)
     #gx2 = eval_g_cb([4], [1;2])
     #println("####---->solveProblem(gx2): ", gx2);
     
-    gx1 = eval_g_cb([4], [2])
+    gx1 = eval_g_cb([0.0,0.0], [2])
     
     #a = prob.eval_f_cb(4);
-    println("####---->solveProblem(gx1): ", gx1);
+    println("####---->solveProblem(gx1,2): ", gx1);
     println("####---->solveProblem(a): ", a);
     println("####---->solveProblem(prob): ", prob);
     prob.obj_val = final_objval[1]
