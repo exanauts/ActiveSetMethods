@@ -20,6 +20,9 @@ model = Model(with_optimizer(Ipopt.Optimizer));
 #@objective(model, Max, 0.9 * sum(X) + 0.16 * sum(Y) + 0.49 * sum(Z));
 
 @constraint(model, 25 * sum(X) + 35 >= 10000);
+@constraint(model, 20 * X[1]^2 + X[2] + 35 >= 10000);
+@NLconstraint(model, X[2] * X[3] + X[1] + 35 >= 10000);
+
 #@constraint(model, 25 * sum(X) + 35 * sum(Y) + 45 * sum(Z)<= 10000);
 #@constraint(model, [i=1:m], Y[i]*Z[i] == 4 * i);
 println("________________________________________");
