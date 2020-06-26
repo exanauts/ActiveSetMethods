@@ -676,6 +676,7 @@ macro eval_function(array_name)
 end
 
 function eval_constraint(model::Optimizer, g, x)
+    g = [0.0, 0.0, 0.0];
     println("-----######------>eval_constraint(g): ", g);
     println("-----######------>eval_constraint(x): ", x);
     println("-----######------>eval_constraint1(model): ", model);
