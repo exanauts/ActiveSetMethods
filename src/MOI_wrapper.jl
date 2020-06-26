@@ -1018,7 +1018,7 @@ function solveProblem(model::Optimizer)
     #gx2 = eval_g_cb([4], [1;2])
     #println("####---->solveProblem(gx2): ", gx2);
     
-    gx1 = eval_g_cb([2], [0.0,0.0])
+    gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
     
     #a = prob.eval_f_cb(4);
     println("####---->solveProblem(gx1,2): ", gx1);
