@@ -693,6 +693,7 @@ function eval_constraint(model::Optimizer, g, x)
     println("-----######------>eval_constraint(nlp_g): ", nlp_g);
     MOI.eval_constraint(model.nlp_data.evaluator, nlp_g, x)
     println("-----######------>eval_constraint3(model): ", model);
+    println("-----######------>eval_constraint(g): ", g);
     return
 end
 
