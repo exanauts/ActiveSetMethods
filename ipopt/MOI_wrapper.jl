@@ -677,6 +677,7 @@ end
 
 function eval_constraint(model::Optimizer, g, x)
     println("-----######------>eval_constraint(g): ", g);
+    println("-----######------>eval_constraint(x): ", x);
     println("-----######------>eval_constraint1(model): ", model);
     row = 1
     @eval_function model.linear_le_constraints
