@@ -677,6 +677,7 @@ end
 
 function eval_constraint(model::Optimizer, g, x)
     println("-----######------>eval_constraint(g): ", g);
+    println("-----######------>eval_constraint1(model): ", model);
     row = 1
     @eval_function model.linear_le_constraints
     @eval_function model.linear_ge_constraints
@@ -684,9 +685,13 @@ function eval_constraint(model::Optimizer, g, x)
     @eval_function model.quadratic_le_constraints
     @eval_function model.quadratic_ge_constraints
     @eval_function model.quadratic_eq_constraints
+    println("-----######------>eval_constraint2(model): ", model);
     nlp_g = view(g, row:length(g))
+    println("-----######------>eval_constraint(row): ", row);
+    println("-----######------>eval_constraint(g): ", g);
     println("-----######------>eval_constraint(nlp_g): ", nlp_g);
     MOI.eval_constraint(model.nlp_data.evaluator, nlp_g, x)
+    println("-----######------>eval_constraint3(model): ", model);
     return
 end
 
