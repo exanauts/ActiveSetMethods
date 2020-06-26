@@ -675,7 +675,8 @@ macro eval_function(array_name)
     end
 end
 
-function eval_constraint(model::Optimizer, g, x)
+#function eval_constraint(model::Optimizer, g, x)
+function eval_constraint(model::IpoptProblem, g, x)
     println("-----######------>eval_constraint(g): ", g);
     println("-----######------>eval_constraint(x): ", x);
     println("-----######------>eval_constraint1(model): ", model);
