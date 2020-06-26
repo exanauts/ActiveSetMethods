@@ -675,8 +675,9 @@ macro eval_function(array_name)
     end
 end
 
-#function eval_constraint(model::Optimizer, g, x)
-function eval_constraint(model::IpoptProblem, g, x)
+
+#function eval_constraint(model::IpoptProblem, g, x)
+function eval_constraint(model::Optimizer, g, x)
     println("-----######------>eval_constraint(g): ", g);
     println("-----######------>eval_constraint(x): ", x);
     println("-----######------>eval_constraint1(model): ", model);
@@ -1016,13 +1017,13 @@ function solveProblem(model::Optimizer)
     #dE = 
     #H = 
     a = eval_objective(model, [4])
-    #gx2 = eval_g_cb([4], [1;2])
-    #println("####---->solveProblem(gx2): ", gx2);
+    gx2 = eval_g_cb([4], [1,2])
+    println("####---->solveProblem(gx2)x=4: ", gx2);
     
-    gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
+    #gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
     
     #a = prob.eval_f_cb(4);
-    println("####---->solveProblem(gx1,2): ", gx1);
+    #println("####---->solveProblem(gx1,2): ", gx1);
     println("####---->solveProblem(a): ", a);
     println("####---->solveProblem(prob): ", prob);
     prob.obj_val = final_objval[1]
