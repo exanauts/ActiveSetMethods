@@ -1,6 +1,6 @@
 push!(LOAD_PATH, ".");
 using JuMP
-using Slopt
+using Ipopt
 
 n=3
 m=4
