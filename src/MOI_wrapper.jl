@@ -1017,8 +1017,8 @@ function solveProblem(model::Optimizer)
     #E = 
     #dE = 
     #H = 
-    a = eval_objective(model, [4])
-    gx2 = eval_g_cb([4], [1,2])
+    a = eval_objective(model, [4.0])
+    gx2 = eval_g_cb([4.0], [1,2])
     println("####---->solveProblem(gx2)x=4: ", gx2);
     
     #gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
