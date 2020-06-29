@@ -676,7 +676,6 @@ macro eval_function(array_name)
 end
 
 function eval_constraint(model::Optimizer, g, x)
-    g = [0.0, 0.0, 0.0];
     println("-----######------>eval_constraint(g): ", g);
     println("-----######------>eval_constraint(x): ", x);
     println("-----######------>eval_constraint1(model): ", model);
@@ -692,6 +691,7 @@ function eval_constraint(model::Optimizer, g, x)
     println("-----######------>eval_constraint(row): ", row);
     println("-----######------>eval_constraint(g): ", g);
     println("-----######------>eval_constraint(nlp_g): ", nlp_g);
+    #MOI.eval_constraint(model.nlp_data.evaluator, nlp_g, x)
     MOI.eval_constraint(model.nlp_data.evaluator, nlp_g, x)
     println("-----######------>eval_constraint3(model): ", model);
     println("-----######------>eval_constraint(g): ", g);
