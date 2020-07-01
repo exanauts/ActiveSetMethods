@@ -1013,9 +1013,9 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
     x = zeros(num_variables)
-    grad_f = zeros(num_variables)
-    g = zeros(num_constraints)
-    values = zeros(length(jacobian_sparsity))
+    df = zeros(num_variables)
+    E = zeros(num_constraints)
+    dE = zeros(length(jacobian_sparsity))
     lam = zeros(num_constraints)
     plam = zeros(num_constraints)
     lam_ = zeros(num_constraints)
@@ -1024,13 +1024,14 @@ function solveProblem(model::Optimizer)
     for i=1:3
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
-        df = eval_grad_f_cb(x, grad_f)
+        df = eval_grad_f_cb(x, df)
         println("####---->solveProblem(df): ", df);
-        E = eval_g_cb(x, g)
+        E = eval_g_cb(x, E)
         println("####---->solveProblem(E): ", E);
-        dE = eval_constraint_jacobian(model, values, x)
+        dE = eval_constraint_jacobian(model, dE, x)
         println("####---->solveProblem(dE): ", dE);
         p = -E[1]/dE[1]
+        println("####---->solveProblem(p): ", p);
         lam_[1] = df[1]/dE[1];
         lam_[2] = df[1]/dE[2];
         plam[1] = lam_[1] - lam[1]
