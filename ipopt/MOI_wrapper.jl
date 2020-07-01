@@ -917,7 +917,8 @@ function MOI.optimize!(model::Optimizer)
 
     # Jacobian callback
     function eval_jac_g_cb(x, mode, rows, cols, values)
-        println("##########-------->eval_jac_g_cb (x): ", x);
+        println("##########-------->eval_jac_g_cb (x): ")
+        print(x);
         println("##########-------->eval_jac_g_cb (mode): ", mode);
         println("##########-------->eval_jac_g_cb (rows): ", rows);
         println("##########-------->eval_jac_g_cb (cols): ", cols);
