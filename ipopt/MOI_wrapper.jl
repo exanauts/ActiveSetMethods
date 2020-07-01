@@ -742,6 +742,8 @@ macro fill_constraint_jacobian(array_name)
 end
 
 function eval_constraint_jacobian(model::Optimizer, values, x)
+    println("##########-------->Before eval_constraint_jacobian (x): ", x);
+    println("##########-------->Before eval_constraint_jacobian (values): ", values);
     offset = 0
     @fill_constraint_jacobian model.linear_le_constraints
     @fill_constraint_jacobian model.linear_ge_constraints
@@ -752,6 +754,8 @@ function eval_constraint_jacobian(model::Optimizer, values, x)
 
     nlp_values = view(values, 1+offset:length(values))
     MOI.eval_constraint_jacobian(model.nlp_data.evaluator, nlp_values, x)
+    println("##########-------->After eval_constraint_jacobian (x): ", x);
+    println("##########-------->After eval_constraint_jacobian (values): ", values);
     return
 end
 
@@ -913,6 +917,11 @@ function MOI.optimize!(model::Optimizer)
 
     # Jacobian callback
     function eval_jac_g_cb(x, mode, rows, cols, values)
+        println("##########-------->eval_jac_g_cb (x): ", x);
+        println("##########-------->eval_jac_g_cb (mode): ", mode);
+        println("##########-------->eval_jac_g_cb (rows): ", rows);
+        println("##########-------->eval_jac_g_cb (cols): ", cols);
+        println("##########-------->eval_jac_g_cb (values): ", values);
         if mode == :Structure
             for i in 1:length(jacobian_sparsity)
                 rows[i] = jacobian_sparsity[i][1]
