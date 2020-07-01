@@ -1032,10 +1032,14 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(dE): ", dE);
         p = -E[1]/dE[1]
         println("####---->solveProblem(p): ", p);
-        lam_[1] = df[1]/dE[1];
-        lam_[2] = df[1]/dE[2];
-        plam[1] = lam_[1] - lam[1]
-        plam[2] = lam_[2] - lam[2]
+        for j=1:num_constraints
+            lam_[j] = df[1]/dE[j];
+            plam[j] = lam_[j] - lam[j]
+        end
+        #lam_[1] = df[1]/dE[1];
+        #lam_[2] = df[1]/dE[2];
+        #plam[1] = lam_[1] - lam[1]
+        #plam[2] = lam_[2] - lam[2]
         println("typeof(x): ", typeof(x));
         println("length(x): ", length(x));
         println("typeof(alpha): ", typeof(alpha));
