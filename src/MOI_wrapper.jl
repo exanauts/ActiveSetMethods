@@ -1035,8 +1035,13 @@ function solveProblem(model::Optimizer)
         lam_[2] = df[1]/dE[2];
         plam[1] = lam_[1] - lam[1]
         plam[2] = lam_[2] - lam[2]
-        x = x + alpha * p;
-        lam = lam + alpha * plam;
+        println("typeof(x): ", typeof(x));
+        println("length(x): ", length(x));
+        println("typeof(alpha): ", typeof(alpha));
+        println("typeof(p): ", typeof(p));
+        println("length(p): ", length(p));
+        x = x + alpha .* p;
+        lam = lam + alpha .* plam;
         println("X: ", x);        
     end
     
