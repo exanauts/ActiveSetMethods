@@ -922,7 +922,7 @@ function MOI.optimize!(model::Optimizer)
         println("##########-------->eval_jac_g_cb (mode): ", mode);
         println("##########-------->eval_jac_g_cb (rows): ", rows);
         println("##########-------->eval_jac_g_cb (cols): ", cols);
-        println("##########-------->eval_jac_g_cb (values): ", values);
+        #println("##########-------->eval_jac_g_cb (values): ", values);
         if mode == :Structure
             for i in 1:length(jacobian_sparsity)
                 rows[i] = jacobian_sparsity[i][1]
