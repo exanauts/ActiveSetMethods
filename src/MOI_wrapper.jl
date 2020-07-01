@@ -1043,7 +1043,10 @@ function solveProblem(model::Optimizer)
         println("length(p): ", length(p));
         x[1] = x[1] + alpha .* p;
         lam = lam + alpha * plam;
-        println("X: ", x);        
+        println("X: ", x);     
+        if (p==0)
+            break;
+        end
     end
     
     
@@ -1064,6 +1067,8 @@ function solveProblem(model::Optimizer)
     #println("####---->solveProblem(prob): ", prob);
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
+    prob.obj_val = eval_f_cb(x);
+    prob.x = x;
     #println("####---->solveProblem(ret)", ret);
 
     return Int(ret)
