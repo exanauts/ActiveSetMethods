@@ -661,7 +661,7 @@ function eval_objective_gradient(model::Optimizer, grad, x)
     else
         fill!(grad, 0.0)
     end
-    return
+    return grad
 end
 
 # Refers to local variables in eval_constraint() below.
@@ -866,6 +866,7 @@ function solveProblem(model::Optimizer)
     function eval_grad_f_cb(x, grad_f)
         eval_objective_gradient(model, grad_f, x)
         rmul!(grad_f,objective_scale)
+        return eval_objective_gradient(model, grad_f, x)
     end
 
     # Constraint value callback
@@ -1012,11 +1013,14 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
     x = zeros(num_variables)
+    grad_f = zeros(num_variables)
     g = zeros(num_constraints)
     
-    for i=1:5
+    for i=1:1
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
+        df = eval_grad_f_cb(x, grad_f)
+        println("####---->solveProblem(df): ", df);
         E = eval_g_cb(x, g)
         println("####---->solveProblem(E): ", E);
     end
