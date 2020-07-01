@@ -1012,25 +1012,34 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
     x = zeros(num_variables)
-    f = eval_f_cb(x);
+    g = zeros(num_constraints)
+    
+    for i=1:5
+        f = eval_f_cb(x);
+        println("####---->solveProblem(f): ", f);
+        E = eval_g_cb(x, g)
+        println("####---->solveProblem(E): ", E);
+    end
+    
+    
     #df = eval_g_cb(x)
     #E = 
     #dE = 
     #H = 
-    a = eval_objective(model, [4.0])
-    gx2 = eval_g_cb([4.0], [1,2])
-    println("####---->solveProblem(gx2)x=4: ", gx2);
-    println("####---->solveProblem(model.inner.g): ", model.inner.g);
+    #a = eval_objective(model, [4.0])
+    #gx2 = eval_g_cb([4.0], [1,2])
+    #println("####---->solveProblem(gx2)x=4: ", gx2);
+    #println("####---->solveProblem(model.inner.g): ", model.inner.g);
     
     #gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
     
     #a = prob.eval_f_cb(4);
     #println("####---->solveProblem(gx1,2): ", gx1);
-    println("####---->solveProblem(a): ", a);
-    println("####---->solveProblem(prob): ", prob);
+    #println("####---->solveProblem(a): ", a);
+    #println("####---->solveProblem(prob): ", prob);
     prob.obj_val = final_objval[1]
     prob.status = Int(ret)
-    println("####---->solveProblem(ret)", ret);
+    #println("####---->solveProblem(ret)", ret);
 
     return Int(ret)
 end
