@@ -20,7 +20,7 @@ model = Model(with_optimizer(Slopt.Optimizer));
 #@objective(model, Min, 16 * sum(X));
 #@objective(model, Max, 0.9 * sum(X) + 0.16 * sum(Y) + 0.49 * sum(Z));
 @NLconstraint(model, X^2 - X == 2);
-@NLconstraint(model, X^2 + X >= 0);
+#@NLconstraint(model, X^2 + X >= 0);
 #@constraint(model, 25 * sum(X) + 35 >= 10000);
 #@constraint(model, 25 * sum(X) + 35 * sum(Y) + 45 * sum(Z)<= 10000);
 #@constraint(model, [i=1:m], Y[i]*Z[i] == 4 * i);
