@@ -1040,8 +1040,8 @@ function solveProblem(model::Optimizer)
         println("typeof(alpha): ", typeof(alpha));
         println("typeof(p): ", typeof(p));
         println("length(p): ", length(p));
-        x = x + alpha .* p;
-        lam = lam + alpha .* plam;
+        x[1] = x[1] + alpha .* p;
+        lam = lam + alpha * plam;
         println("X: ", x);        
     end
     
