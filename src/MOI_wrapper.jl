@@ -1020,6 +1020,7 @@ function solveProblem(model::Optimizer)
     a = eval_objective(model, [4.0])
     gx2 = eval_g_cb([4.0], [1,2])
     println("####---->solveProblem(gx2)x=4: ", gx2);
+    println("####---->solveProblem(model.inner.g): ", model.inner.g);
     
     #gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
     
