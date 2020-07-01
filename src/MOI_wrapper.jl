@@ -1015,7 +1015,7 @@ function solveProblem(model::Optimizer)
     x = zeros(num_variables)
     grad_f = zeros(num_variables)
     g = zeros(num_constraints)
-    values = zeros(num_constraints)
+    values = zeros(length(jacobian_sparsity))
     
     for i=1:1
         f = eval_f_cb(x);
