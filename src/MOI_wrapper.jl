@@ -1016,8 +1016,12 @@ function solveProblem(model::Optimizer)
     grad_f = zeros(num_variables)
     g = zeros(num_constraints)
     values = zeros(length(jacobian_sparsity))
+    lam = zeros(num_constraints)
+    plam = zeros(num_constraints)
+    lam_ = zeros(num_constraints)
+    alpha = 0.5;
     
-    for i=1:1
+    for i=1:3
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
         df = eval_grad_f_cb(x, grad_f)
@@ -1026,6 +1030,14 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(E): ", E);
         dE = eval_constraint_jacobian(model, values, x)
         println("####---->solveProblem(dE): ", dE);
+        p = -E[1]/dE[1]
+        lam_[1] = df[1]/dE[1];
+        lam_[2] = df[1]/dE[2];
+        plam[1] = lam_[1] - lam[1]
+        plam[2] = lam_[2] - lam[2]
+        x = x + alpha * p;
+        lam = lam + alpha * plam;
+        println("X: ", x);        
     end
     
     
