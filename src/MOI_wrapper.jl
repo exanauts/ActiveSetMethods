@@ -754,7 +754,7 @@ function eval_constraint_jacobian(model::Optimizer, values, x)
 
     nlp_values = view(values, 1+offset:length(values))
     MOI.eval_constraint_jacobian(model.nlp_data.evaluator, nlp_values, x)
-    return
+    return values
 end
 
 function fill_hessian_lagrangian!(values, start_offset, scale_factor,
@@ -1015,6 +1015,7 @@ function solveProblem(model::Optimizer)
     x = zeros(num_variables)
     grad_f = zeros(num_variables)
     g = zeros(num_constraints)
+    values = zeros(num_constraints)
     
     for i=1:1
         f = eval_f_cb(x);
@@ -1023,6 +1024,8 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(df): ", df);
         E = eval_g_cb(x, g)
         println("####---->solveProblem(E): ", E);
+        dE = eval_constraint_jacobian(model, values, x)
+        println("####---->solveProblem(dE): ", dE);
     end
     
     
