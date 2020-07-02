@@ -1,4 +1,4 @@
-'''
+#=
 The model solves the following minimization problem.
     
       min   cx
@@ -11,7 +11,7 @@ A1 -> m1 x n
 b1 -> m1 x 1
 A2 -> m2 x n
 b1 -> m2 x 1
-'''
+=#
 
 using MathOptInterface, GLPK
 const MOI = MathOptInterface
