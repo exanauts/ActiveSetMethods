@@ -21,7 +21,7 @@ n=4;
 m1=3;
 m2=2;
 
-c = rand(1,n);
+c = rand(n);
 A1 = rand(m1,n);
 b1 = rand(m1,1);
 A2 = rand(m2,n);
