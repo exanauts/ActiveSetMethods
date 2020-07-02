@@ -34,7 +34,7 @@ MOI.set(model,
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE);
 
 terms1 = MOI.VectorAffineTerm.(1:m1, MOI.ScalarAffineTerm.(A1, reshape(x, 1, n)));
-f1 = MOI.VectorAffineFunction(vec(terms1), b);
+f1 = MOI.VectorAffineFunction(vec(terms1), b1);
 MOI.add_constraint(model, f1, MOI.Nonpositives(m1));
 
 print(model);
