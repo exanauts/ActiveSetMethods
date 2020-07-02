@@ -27,6 +27,12 @@ b1 = rand(m1);
 A2 = rand(m2,n);
 b2 = rand(m2);
 
+println("c", c);
+println("A1", A1);
+println("b1", b1);
+println("A2", A2);
+println("b2", b2);
+
 x = MOI.add_variables(model, n);
 MOI.set(model,
         MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
