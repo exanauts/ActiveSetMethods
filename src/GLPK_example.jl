@@ -23,9 +23,9 @@ m2=2;
 
 c = rand(n);
 A1 = rand(m1,n);
-b1 = rand(m1,1);
+b1 = rand(m1);
 A2 = rand(m2,n);
-b2 = rand(m2,1);
+b2 = rand(m2);
 
 x = MOI.add_variables(model, n);
 MOI.set(model,
