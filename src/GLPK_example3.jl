@@ -1,9 +1,10 @@
 using GLPK
 using MathOptInterface
-using Compat.Test
+using Test
 const MOI = MathOptInterface
 
-optimizer = GLPKOptimizerMIP()
+optimizer = model = GLPK.Optimizer();
+#GLPKOptimizerMIP()
 x = MOI.addvariable!(optimizer)
 MOI.addconstraint!(optimizer, MOI.SingleVariable(x), MOI.Integer())
 f = MOI.VectorAffineFunction([MOI.VectorAffineTerm(1, MOI.ScalarAffineTerm(1.0, x))], [-0.5])
