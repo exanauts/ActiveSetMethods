@@ -39,9 +39,15 @@ MOI.set(model,
         MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(c, x), 0.0));
 MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE);
 
-terms1 = MOI.VectorAffineTerm.(1:m1, MOI.ScalarAffineTerm.(A1, reshape(x, 1, n)));
-f1 = MOI.VectorAffineFunction(vec(terms1), b1);
-MOI.add_constraint(model, f1, MOI.Nonpositives(m1));
+for i in 1:m1
+        MOI.add_constraint(model,
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:],x), b1[i]),
+                                 MOI.EqualTo(0.0))
+end
+
+#terms1 = MOI.VectorAffineTerm.(1:m1, MOI.ScalarAffineTerm.(A1, reshape(x, 1, n)));
+#f1 = MOI.VectorAffineFunction(vec(terms1), b1);
+#MOI.add_constraint(model, f1, MOI.Nonpositives(m1));
 
 print(model);
 MOI.optimize!(model);
