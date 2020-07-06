@@ -41,7 +41,7 @@ MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE);
 
 for i in 1:m1
         MOI.add_constraint(model,
-        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A[i,:],x), b1[i]),
+        MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(A1[i,:],x), b1[i]),
                                  MOI.EqualTo(0.0))
 end
 
