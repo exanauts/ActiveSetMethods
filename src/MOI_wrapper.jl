@@ -1,4 +1,5 @@
 import MathOptInterface
+using GLPK
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 
@@ -1078,7 +1079,9 @@ function solveProblem(model::Optimizer)
     return Int(ret)
 end
 
-function MOI.optimize!(model::Optimizer)
+function MOI.optimize!(model::Optimizer, lp=GLPK.Optimizer)
+    
+    println("lp: ", lp);
     # TODO: Reuse model.inner for incremental solves if possible.
     #println("##########--------> MOI.optimize!(model.objective): ", model.objective);
     #obj00 = model.objective
