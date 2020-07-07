@@ -1079,9 +1079,9 @@ function solveProblem(model::Optimizer)
     return Int(ret)
 end
 
-function MOI.optimize!(model::Optimizer, lp=GLPK.Optimizer)
+function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
     
-    println("lp: ", lp);
+    println("lp_solver: ", lp_solver);
     # TODO: Reuse model.inner for incremental solves if possible.
     #println("##########--------> MOI.optimize!(model.objective): ", model.objective);
     #obj00 = model.objective
