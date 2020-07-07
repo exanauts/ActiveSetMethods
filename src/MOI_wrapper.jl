@@ -39,6 +39,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     quadratic_ge_constraints::Vector{ConstraintInfo{MOI.ScalarQuadraticFunction{Float64}, MOI.GreaterThan{Float64}}}
     quadratic_eq_constraints::Vector{ConstraintInfo{MOI.ScalarQuadraticFunction{Float64}, MOI.EqualTo{Float64}}}
     nlp_dual_start::Union{Nothing, Vector{Float64}}
+    lp_solver::Any
 
     # Parameters.
     silent::Bool
