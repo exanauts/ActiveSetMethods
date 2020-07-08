@@ -1,5 +1,5 @@
 import MathOptInterface
-using GLPK
+using GLPK, Gurobi
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 
@@ -39,7 +39,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     quadratic_ge_constraints::Vector{ConstraintInfo{MOI.ScalarQuadraticFunction{Float64}, MOI.GreaterThan{Float64}}}
     quadratic_eq_constraints::Vector{ConstraintInfo{MOI.ScalarQuadraticFunction{Float64}, MOI.EqualTo{Float64}}}
     nlp_dual_start::Union{Nothing, Vector{Float64}}
-    lp_solver::Any
+    lp_solver::MOI.AbstractOptimizer
 
     # Parameters.
     silent::Bool
@@ -77,6 +77,7 @@ empty_nlp_data() = MOI.NLPBlockData([], EmptyNLPEvaluator(), false)
 
 
 function Optimizer(;options...)
+    println("checked 1")
     options_dict = Dict{String, Any}()
     # TODO: Setting options through the constructor could be deprecated in the
     # future.
@@ -84,7 +85,7 @@ function Optimizer(;options...)
         options_dict[string(name)] = value
     end
     return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
-                     nothing, [], [], [], [], [], [], nothing,
+                     nothing, [], [], [], [], [], [], nothing,Gurobi.Optimizer(),
                      false, options_dict, NaN)
 end
 
@@ -106,6 +107,8 @@ function MOI.supports(::Optimizer,
 end
 
 MOI.supports(::Optimizer, ::MOI.ObjectiveSense) = true
+
+MOI.supports(::Optimizer, ::MOI.AbstractOptimizer) = true
 
 MOI.supports(::Optimizer, ::MOI.Silent) = true
 
@@ -184,6 +187,11 @@ end
 function MOI.set(model::Optimizer, ::MOI.ObjectiveSense,
                  sense::MOI.OptimizationSense)
     model.sense = sense
+    return
+end
+
+function MOI.set(model::Optimizer, model1::Optimizer)
+    model.lp_solver = model1
     return
 end
 
@@ -1023,7 +1031,11 @@ function solveProblem(model::Optimizer)
     lam_ = zeros(num_constraints)
     alpha = 0.5;
     
-    for i=1:3
+    println("####---->solveProblem(jacobian_sparsity): ", jacobian_sparsity);
+    println("####---->solveProblem(typeof(jacobian_sparsity): ", typeof(jacobian_sparsity));
+    println("####---->solveProblem(size(jacobian_sparsity): ", size(jacobian_sparsity));
+    
+    for i=1:1
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
         df = eval_grad_f_cb(x, df)
@@ -1032,7 +1044,8 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(E): ", E);
         dE = eval_constraint_jacobian(model, dE, x)
         println("####---->solveProblem(dE): ", dE);
-        p = -E[1]/dE[1]
+        (p,optimality) = solve_lp(model.lp_solver, num_variables, num_constraints,0, df, dE,E,[],[],)
+        #p = -E[1]/dE[1]
         println("####---->solveProblem(p): ", p);
         for j=1:num_constraints
             lam_[j] = df[1]/dE[j];
@@ -1044,13 +1057,14 @@ function solveProblem(model::Optimizer)
         #plam[2] = lam_[2] - lam[2]
         println("typeof(x): ", typeof(x));
         println("length(x): ", length(x));
+        println("alpha: ", alpha);
         println("typeof(alpha): ", typeof(alpha));
         println("typeof(p): ", typeof(p));
         println("length(p): ", length(p));
-        x[1] = x[1] + alpha .* p;
-        lam = lam + alpha * plam;
+        x .= x + alpha .* p;
+        lam .= lam + alpha .* plam;
         println("X: ", x);     
-        if (p==0)
+        if (sum(abs.(p))==0)
             break;
         end
     end
@@ -1080,9 +1094,9 @@ function solveProblem(model::Optimizer)
     return Int(ret)
 end
 
-function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
+function MOI.optimize!(model::Optimizer)    
     
-    println("lp_solver: ", lp_solver);
+    println("lp_solver: ", model.lp_solver);
     # TODO: Reuse model.inner for incremental solves if possible.
     #println("##########--------> MOI.optimize!(model.objective): ", model.objective);
     #obj00 = model.objective
@@ -1147,7 +1161,7 @@ function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
     #println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
     
     start_time = time()
-    println(" ---- Optimize! Parameters End");
+    #println(" ---- Optimize! Parameters End");
     #= Objective callback
     if model.sense == MOI.MIN_SENSE
         objective_scale = 1.0
@@ -1205,11 +1219,11 @@ function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
 
     constraint_lb, constraint_ub = constraint_bounds(model)
     
-    println("##########-------->x_l: ", x_l);
-    println("##########-------->x_u: ", x_u);
-    println("##########-------->constraint_lb: ", constraint_lb);
-    println("##########-------->constraint_ub: ", constraint_ub);
-    println(" ---- Optimize! Parameters End");
+    #println("##########-------->x_l: ", x_l);
+    #println("##########-------->x_u: ", x_u);
+    #println("##########-------->constraint_lb: ", constraint_lb);
+    #println("##########-------->constraint_ub: ", constraint_ub);
+    #println(" ---- Optimize! Parameters End");
 
     start_time = time()
 
@@ -1219,7 +1233,7 @@ function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
                             length(hessian_sparsity),
                             eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
                             eval_h_cb)
-    println("##########-----********--->created model.innern: ", model.inner);
+    #println("##########-----********--->created model.innern: ", model.inner);
 
     # Ipopt crashes by default if NaN/Inf values are returned from the
     # evaluation callbacks. This option tells Ipopt to explicitly check for them
@@ -1290,14 +1304,15 @@ function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
     end
     =#
     
-    println("##########-----********--->before solve model.innern: ", model.inner);
+    #println("##########-----********--->before solve model.innern: ", model.inner);
     
     solveProblem(model)
     
-    println("##########-----********--->after solve model.innern: ", model.inner);
+    #println("##########-----********--->after solve model.innern: ", model.inner);
 
     model.solve_time = time() - start_time
     
+    #=
     println("Optimize! final begin .....");
     println("##########-------->inner: ", model.inner);
     println("##########-------->variable_info: ", model.variable_info);
@@ -1314,7 +1329,7 @@ function MOI.optimize!(model::Optimizer, lp_solver=GLPK.Optimizer())
     println("##########-------->silent: ", model.silent);
     println("##########-------->options: ", model.options);
     println("##########-------->solve_time: ", model.solve_time);  
-    println("..... Optimize! final End");
+    println("..... Optimize! final End");=#
     
     return
 end

@@ -2,6 +2,7 @@ module Slopt
 export slopt_status
 using Libdl
 using LinearAlgebra
+include("lp_opt.jl")
 
 if VERSION < v"1.3" || (haskey(ENV, "JULIA_IPOPT_LIBRARY_PATH") && haskey(ENV, "JULIA_IPOPT_EXECUTABLE_PATH"))
     if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))

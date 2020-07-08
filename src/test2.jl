@@ -1,14 +1,10 @@
 push!(LOAD_PATH, ".");
 using JuMP
-using Slopt 
+using Ipopt
 
-solver = Slopt.Optimizer
+solver = Ipopt.Optimizer
 
 model = Model(solver);
-
-#model.lp_solver = Ipopt.Optimizer()
-#lp = Model(Ipopt.Optimizer)
-#MOI.set(model, lp)
 
 @variable(model, X);
 @objective(model, Min, X^2 + X);
