@@ -1,10 +1,14 @@
 push!(LOAD_PATH, ".");
 using JuMP
-using Slopt 
+using Slopt, Gurobi 
 
 solver = Slopt.Optimizer
 
+#model = Model(optimizer_with_attributes(solver, "lp_solver" => Gurobi.Optimizer()));
 model = Model(solver);
+
+#optimizer_with_attributes(lp_solver=Gurobi.Optimizer())
+#set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
 
 #model.lp_solver = Ipopt.Optimizer()
 #lp = Model(Ipopt.Optimizer)

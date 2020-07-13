@@ -75,6 +75,7 @@ end
 
 empty_nlp_data() = MOI.NLPBlockData([], EmptyNLPEvaluator(), false)
 
+#=
 
 function Optimizer(;options...)
     println("checked 1")
@@ -87,7 +88,23 @@ function Optimizer(;options...)
     return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
                      nothing, [], [], [], [], [], [], nothing,Gurobi.Optimizer(),
                      false, options_dict, NaN)
-end
+end =#
+
+function Optimizer(;kwargs...)
+    options_dict = Dict{String, Any}()
+    # TODO: Setting options through the constructor could be deprecated in the
+    # future.
+    lp_solver = GLPK.Optimizer()
+    for (name, value) in kwargs
+    	if name == "lp_solver"
+    		lp_solver = value
+        else
+            	options_dict[string(name)] = value
+        end
+    end
+    return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
+                     nothing, [], [], [], [], [], [],nothing,lp_solver,false, options_dict, NaN)
+end 
 
 MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
 
@@ -190,11 +207,6 @@ function MOI.set(model::Optimizer, ::MOI.ObjectiveSense,
     return
 end
 
-function MOI.set(model::Optimizer, model1::Optimizer)
-    model.lp_solver = model1
-    return
-end
-
 MOI.get(model::Optimizer, ::MOI.ObjectiveSense) = model.sense
 
 function MOI.set(model::Optimizer, ::MOI.Silent, value)
@@ -218,7 +230,11 @@ end
 
 
 function MOI.set(model::Optimizer, p::MOI.RawParameter, value)
-    model.options[p.name] = value
+    if p == MOI.RawParameter("lp_solver")
+    	model.lp_solver = value
+    else
+    	model.options[p.name] = value
+    end
     return
 end
 
@@ -1097,6 +1113,7 @@ end
 function MOI.optimize!(model::Optimizer)    
     
     println("lp_solver: ", model.lp_solver);
+    println("model.options: ", model.options);
     # TODO: Reuse model.inner for incremental solves if possible.
     #println("##########--------> MOI.optimize!(model.objective): ", model.objective);
     #obj00 = model.objective
