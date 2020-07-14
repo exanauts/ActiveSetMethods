@@ -1,5 +1,5 @@
 import MathOptInterface
-using GLPK, Gurobi
+using GLPK, SparseArrays
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 
@@ -39,7 +39,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     quadratic_ge_constraints::Vector{ConstraintInfo{MOI.ScalarQuadraticFunction{Float64}, MOI.GreaterThan{Float64}}}
     quadratic_eq_constraints::Vector{ConstraintInfo{MOI.ScalarQuadraticFunction{Float64}, MOI.EqualTo{Float64}}}
     nlp_dual_start::Union{Nothing, Vector{Float64}}
-    lp_solver::MOI.AbstractOptimizer
+    lp_solver::Any
 
     # Parameters.
     silent::Bool
@@ -94,7 +94,7 @@ function Optimizer(;kwargs...)
     options_dict = Dict{String, Any}()
     # TODO: Setting options through the constructor could be deprecated in the
     # future.
-    lp_solver = GLPK.Optimizer()
+    lp_solver = GLPK.Optimizer
     for (name, value) in kwargs
     	if name == "lp_solver"
     		lp_solver = value
@@ -104,7 +104,7 @@ function Optimizer(;kwargs...)
     end
     return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
                      nothing, [], [], [], [], [], [],nothing,lp_solver,false, options_dict, NaN)
-end 
+end
 
 MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
 
@@ -196,7 +196,7 @@ function MOI.get(model::Optimizer, ::MOI.ListOfConstraints)
     if !isempty(model.quadratic_eq_constraints)
         push!(constraints, (MOI.ScalarQuadraticFunction{Float64}, MOI.EqualTo{Float64}))
     end
-    
+
     return collect(constraints)
 end
 
@@ -852,9 +852,9 @@ function constraint_bounds(model::Optimizer)
 end
 
 function solveProblem(model::Optimizer)
-    
+
     #
-    
+
     num_variables = length(model.variable_info)
     num_linear_le_constraints = length(model.linear_le_constraints)
     num_linear_ge_constraints = length(model.linear_ge_constraints)
@@ -875,7 +875,7 @@ function solveProblem(model::Optimizer)
     MOI.initialize(evaluator, init_feat)
     jacobian_sparsity = jacobian_structure(model)
     hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
-    
+
     if model.sense == MOI.MIN_SENSE
         objective_scale = 1.0
     elseif model.sense == MOI.MAX_SENSE
@@ -932,7 +932,7 @@ function solveProblem(model::Optimizer)
     x_u = [v.upper_bound for v in model.variable_info]
 
     constraint_lb, constraint_ub = constraint_bounds(model)
-    
+
     #println("##########-------->x_l: ", x_l);
     #println("##########-------->x_u: ", x_u);
     #println("##########-------->constraint_lb: ", constraint_lb);
@@ -1015,7 +1015,7 @@ function solveProblem(model::Optimizer)
     for (name, value) in model.options
         addOption(model.inner, name, value)
     end
-    
+
     #
     prob = model.inner
     final_objval = [0.0]
@@ -1038,6 +1038,13 @@ function solveProblem(model::Optimizer)
     println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
+
+    constraint_lb, constraint_ub = constraint_bounds(model)
+    println("Sense: ",model.sense);
+    println("constraint_lb: ", constraint_lb);
+    println("constraint_ub: ", constraint_ub);
+    c_init = spzeros(num_variables+1);
+    A = spzeros(num_constraints,num_variables);
     x = zeros(num_variables)
     df = zeros(num_variables)
     E = zeros(num_constraints)
@@ -1046,12 +1053,17 @@ function solveProblem(model::Optimizer)
     plam = zeros(num_constraints)
     lam_ = zeros(num_constraints)
     alpha = 0.5;
-    
+
+    println("####---->solveProblem(num_constraints): ", num_constraints);
     println("####---->solveProblem(jacobian_sparsity): ", jacobian_sparsity);
     println("####---->solveProblem(typeof(jacobian_sparsity): ", typeof(jacobian_sparsity));
     println("####---->solveProblem(size(jacobian_sparsity): ", size(jacobian_sparsity));
-    
-    for i=1:1
+    println("####---->solveProblem(length(jacobian_sparsity): ", length(jacobian_sparsity));
+    println("####---->solveProblem(jacobian_sparsity[1]): ", jacobian_sparsity[1]);
+    #println("####---->solveProblem(jacobian_sparsity[4][1]): ", jacobian_sparsity[4][1]);
+    #println("####---->solveProblem(jacobian_sparsity[4][2]): ", jacobian_sparsity[4][2]);
+
+    for i=1:3
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
         df = eval_grad_f_cb(x, df)
@@ -1060,7 +1072,13 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(E): ", E);
         dE = eval_constraint_jacobian(model, dE, x)
         println("####---->solveProblem(dE): ", dE);
-        (p,optimality) = solve_lp(model.lp_solver, num_variables, num_constraints,0, df, dE,E,[],[],)
+        c_init[1:num_variables] .= df;
+        c_init[num_variables+1] = f;
+        for Ai = 1:length(jacobian_sparsity)
+            A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
+        end
+        #(p,optimality) = solve_lp(model.lp_solver,0, df, dE,E,[],[],)
+        (p,optimality) = solve_lp(model.lp_solver,c_init,A,E,constraint_lb,constraint_ub,model.sense)
         #p = -E[1]/dE[1]
         println("####---->solveProblem(p): ", p);
         for j=1:num_constraints
@@ -1079,24 +1097,24 @@ function solveProblem(model::Optimizer)
         println("length(p): ", length(p));
         x .= x + alpha .* p;
         lam .= lam + alpha .* plam;
-        println("X: ", x);     
+        println("X: ", x);
         if (sum(abs.(p))==0)
             break;
         end
     end
-    
-    
+
+
     #df = eval_g_cb(x)
-    #E = 
-    #dE = 
-    #H = 
+    #E =
+    #dE =
+    #H =
     #a = eval_objective(model, [4.0])
     #gx2 = eval_g_cb([4.0], [1,2])
     #println("####---->solveProblem(gx2)x=4: ", gx2);
     #println("####---->solveProblem(model.inner.g): ", model.inner.g);
-    
+
     #gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
-    
+
     #a = prob.eval_f_cb(4);
     #println("####---->solveProblem(gx1,2): ", gx1);
     #println("####---->solveProblem(a): ", a);
@@ -1110,8 +1128,8 @@ function solveProblem(model::Optimizer)
     return Int(ret)
 end
 
-function MOI.optimize!(model::Optimizer)    
-    
+function MOI.optimize!(model::Optimizer)
+
     println("lp_solver: ", model.lp_solver);
     println("model.options: ", model.options);
     # TODO: Reuse model.inner for incremental solves if possible.
@@ -1136,10 +1154,10 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
     #println("##########-------->silent: ", model.silent);
     #println("##########-------->options: ", model.options);
-    #println("##########-------->solve_time: ", model.solve_time);  
+    #println("##########-------->solve_time: ", model.solve_time);
     #println("..... Optimize! initial End");
-    
-    
+
+
     num_variables = length(model.variable_info)
     num_linear_le_constraints = length(model.linear_le_constraints)
     num_linear_ge_constraints = length(model.linear_ge_constraints)
@@ -1160,7 +1178,7 @@ function MOI.optimize!(model::Optimizer)
     MOI.initialize(evaluator, init_feat)
     jacobian_sparsity = jacobian_structure(model)
     hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
-    
+
     #println(" Optimize! Parameters Begin ----");
     #println("##########-------->num_variables: ", num_variables);
     #println("##########-------->num_linear_le_constraints: ", num_linear_le_constraints);
@@ -1176,7 +1194,7 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-------->init_feat: ", init_feat);
     #println("##########-------->has_hessian: ", has_hessian);
     #println("##########-------->num_nlp_constraints: ", num_nlp_constraints);
-    
+
     start_time = time()
     #println(" ---- Optimize! Parameters End");
     #= Objective callback
@@ -1235,7 +1253,7 @@ function MOI.optimize!(model::Optimizer)
     x_u = [v.upper_bound for v in model.variable_info]
 
     constraint_lb, constraint_ub = constraint_bounds(model)
-    
+
     #println("##########-------->x_l: ", x_l);
     #println("##########-------->x_u: ", x_u);
     #println("##########-------->constraint_lb: ", constraint_lb);
@@ -1320,15 +1338,15 @@ function MOI.optimize!(model::Optimizer)
         addOption(model.inner, name, value)
     end
     =#
-    
+
     #println("##########-----********--->before solve model.innern: ", model.inner);
-    
+
     solveProblem(model)
-    
+
     #println("##########-----********--->after solve model.innern: ", model.inner);
 
     model.solve_time = time() - start_time
-    
+
     #=
     println("Optimize! final begin .....");
     println("##########-------->inner: ", model.inner);
@@ -1345,9 +1363,9 @@ function MOI.optimize!(model::Optimizer)
     println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
     println("##########-------->silent: ", model.silent);
     println("##########-------->options: ", model.options);
-    println("##########-------->solve_time: ", model.solve_time);  
+    println("##########-------->solve_time: ", model.solve_time);
     println("..... Optimize! final End");=#
-    
+
     return
 end
 

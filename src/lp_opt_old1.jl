@@ -31,15 +31,20 @@ b1 = sprand(Float64, 6, 1.0);
 b2 = sprand(Float64, 4, 0.0)
 =#
 
-function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense)
+function solve_lp(model,c,A1,b1,A2,b2,min_max=0)
 
-	model = solver()
-	n = A.n;
-	m = A.m;
+	sense = MOI.MIN_SENSE
 
-	c = c_init[1:n];
+	if min_max != 0
+		sense = MOI.MAX_SENSE
+	end
 
-	c0 = c_init[n+1];
+	n = A1.n;
+	m1 = A1.m;
+	m2 = A2.m;
+
+	c0 = c[n+1]
+
 
 	x = MOI.add_variables(model, n)
 	terms = Array{MOI.ScalarAffineTerm{Float64},1}();
@@ -51,28 +56,29 @@ function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense)
 	MOI.ScalarAffineFunction(terms, c0))
 	MOI.set(model, MOI.ObjectiveSense(), sense)
 
-	for i=1:m
-		Ai = A[i,:];
+	for i=1:m1
+		Ai = A1[i,:];
 		terms = Array{MOI.ScalarAffineTerm{Float64},1}();
 		for (ind, val) in zip(Ai.nzind, Ai.nzval)
 			push!(terms, MOI.ScalarAffineTerm{Float64}(val, MOI.VariableIndex(ind)));
 		end
-		if constraint_lb[i] != -Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
-			MOI.ScalarAffineFunction(terms, b[i]), MOI.GreaterThan(constraint_lb[i]));
+		MOI.Utilities.normalize_and_add_constraint(model,
+		MOI.ScalarAffineFunction(terms, b1[i]), MOI.EqualTo(0.0));
+	end
+
+	for i=1:m2
+		Ai = A2[i,:];
+		terms = Array{MOI.ScalarAffineTerm{Float64},1}();
+		for (ind, val) in zip(Ai.nzind, Ai.nzval)
+			push!(terms, MOI.ScalarAffineTerm{Float64}(val, MOI.VariableIndex(ind)));
 		end
-		if constraint_ub[i] != Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
-			MOI.ScalarAffineFunction(terms, b[i]), MOI.LessThan(constraint_ub[i]));
-		end
+		MOI.Utilities.normalize_and_add_constraint(model,
+		MOI.ScalarAffineFunction(terms, b2[i]), MOI.LessThan(0.0));
 	end
 
 
 	MOI.optimize!(model);
 	status = MOI.get(model, MOI.TerminationStatus());
-	println("Model: ", model);
-	println("Status: ", status);
-
 
 	Xsol = zeros(n);
 	s = 1;
