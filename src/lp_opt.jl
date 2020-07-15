@@ -50,7 +50,7 @@ function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense)
 	MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
 	MOI.ScalarAffineFunction(terms, c0))
 	MOI.set(model, MOI.ObjectiveSense(), sense)
-
+	con1=[]
 	for i=1:m
 		Ai = A[i,:];
 		terms = Array{MOI.ScalarAffineTerm{Float64},1}();
@@ -58,11 +58,11 @@ function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense)
 			push!(terms, MOI.ScalarAffineTerm{Float64}(val, MOI.VariableIndex(ind)));
 		end
 		if constraint_lb[i] != -Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
+			con1= MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.GreaterThan(constraint_lb[i]));
 		end
 		if constraint_ub[i] != Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
+			con2 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.LessThan(constraint_ub[i]));
 		end
 	end
@@ -73,6 +73,22 @@ function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense)
 	println("Model: ", model);
 	println("Status: ", status);
 
+	# statusPrimal = MOI.get(model, MOI.PrimalStatus());
+	# println("StatusPrimal: ", statusPrimal);
+	#
+	# statusDual = MOI.get(model, MOI.DualStatus());
+	# println("StatusDual: ", statusDual);
+	#
+	# Pobj = MOI.get(model, MOI.ObjectiveValue());
+	# println("Pobj: ", Pobj);
+	#
+	# Dobj = MOI.get(model, MOI.DualObjectiveValue());
+	# println("Dobj: ", Dobj);
+
+	#Dconst = MOI.get(model, MOI.ConstraintPrimal());
+	#println("Dconst: ", Dconst);
+
+
 
 	Xsol = zeros(n);
 	s = 1;
@@ -81,6 +97,8 @@ function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense)
 	if status == MOI.OPTIMAL
 		Xsol = MOI.get(model, MOI.VariablePrimal(), x);
 		println(Xsol);
+		# Xdual = MOI.get(model, MOI.DualObjectiveValue(), con1);
+		# println(Xdual);
 	end
 
 	return(Xsol,s)

@@ -92,6 +92,7 @@ end =#
 
 function Optimizer(;kwargs...)
     options_dict = Dict{String, Any}()
+    options_dict = Dict("eta"=>0.45,"tau"=>0.9,"rho"=>0.9);
     # TODO: Setting options through the constructor could be deprecated in the
     # future.
     lp_solver = GLPK.Optimizer
@@ -1012,11 +1013,12 @@ function solveProblem(model::Optimizer)
 
     model.silent && addOption(model.inner, "print_level", 0)
 
-    for (name, value) in model.options
+    #=for (name, value) in model.options
         addOption(model.inner, name, value)
-    end
+    end=#
 
     #
+    println("--------------->model.options: ", model.options);
     prob = model.inner
     final_objval = [0.0]
     ret = 0;
@@ -1045,14 +1047,19 @@ function solveProblem(model::Optimizer)
     println("constraint_ub: ", constraint_ub);
     c_init = spzeros(num_variables+1);
     A = spzeros(num_constraints,num_variables);
+    mu = 0.01*ones(num_constraints);
     x = zeros(num_variables)
+    p = ones(num_variables)
     df = zeros(num_variables)
     E = zeros(num_constraints)
     dE = zeros(length(jacobian_sparsity))
     lam = zeros(num_constraints)
     plam = zeros(num_constraints)
     lam_ = zeros(num_constraints)
-    alpha = 0.5;
+    alpha = 1;
+    eta = model.options["eta"];
+    tau = model.options["tau"];
+    rho = model.options["rho"];
 
     println("####---->solveProblem(num_constraints): ", num_constraints);
     println("####---->solveProblem(jacobian_sparsity): ", jacobian_sparsity);
@@ -1072,13 +1079,20 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(E): ", E);
         dE = eval_constraint_jacobian(model, dE, x)
         println("####---->solveProblem(dE): ", dE);
+        mu_nu = df' * p / (1 - model.options["rho"]);
+        println("####---->Before solveProblem(mu): ", mu);
+        for mui = 1:length(num_constraints)
+            mu_temp = 1.1*mu_nu/abs(E[mui]);
+            mu[mui] = (mu[mui]<mu_temp) ? mu_temp : mu[mui];
+        end
+        println("####---->After solveProblem(mu): ", mu);
         c_init[1:num_variables] .= df;
         c_init[num_variables+1] = f;
         for Ai = 1:length(jacobian_sparsity)
             A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
         end
         #(p,optimality) = solve_lp(model.lp_solver,0, df, dE,E,[],[],)
-        (p,optimality) = solve_lp(model.lp_solver,c_init,A,E,constraint_lb,constraint_ub,model.sense)
+        (p,optimality) = solve_lp(model.lp_solver,c_init,A,E,constraint_lb,constraint_ub,model.sense,mu)
         #p = -E[1]/dE[1]
         println("####---->solveProblem(p): ", p);
         for j=1:num_constraints

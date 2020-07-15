@@ -6,7 +6,8 @@ solver = Slopt.Optimizer
 
 #model = Model(optimizer_with_attributes(solver, "lp_solver" => Gurobi.Optimizer()));
 model = Model(solver);
-set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
+#set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
+set_optimizer_attribute(model, "eta", 0.35)
 
 #optimizer_with_attributes(lp_solver=Gurobi.Optimizer())
 #set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)

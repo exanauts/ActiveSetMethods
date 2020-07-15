@@ -83,7 +83,6 @@ function solve_lp(model,c,A1,b1,A2,b2,min_max=0)
 	Xsol = zeros(n);
 	s = 1;
 
-
 	if status == MOI.OPTIMAL
 		Xsol = MOI.get(model, MOI.VariablePrimal(), x);
 		println(Xsol);
