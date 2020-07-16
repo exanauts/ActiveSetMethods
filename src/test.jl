@@ -20,7 +20,7 @@ set_optimizer_attribute(model, "eta", 0.35)
 @variable(model, Y);
 @objective(model, Min, X^2 + X);
 @NLconstraint(model, X^2 - X == 2);
-#@NLconstraint(model, X*Y == 1);
+@NLconstraint(model, X*Y == 1);
 @NLconstraint(model, X*Y >= 0);
 @constraint(model, X >= -2);
 

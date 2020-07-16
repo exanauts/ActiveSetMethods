@@ -1047,7 +1047,7 @@ function solveProblem(model::Optimizer)
     println("constraint_ub: ", constraint_ub);
     c_init = spzeros(num_variables+1);
     A = spzeros(num_constraints,num_variables);
-    mu = 0.01*ones(num_constraints);
+    mu = 0.01;
     x = zeros(num_variables)
     p = ones(num_variables)
     df = zeros(num_variables)
@@ -1061,6 +1061,7 @@ function solveProblem(model::Optimizer)
     tau = model.options["tau"];
     rho = model.options["rho"];
 
+    println("####---->solveProblem(num_variables): ", num_variables);
     println("####---->solveProblem(num_constraints): ", num_constraints);
     println("####---->solveProblem(jacobian_sparsity): ", jacobian_sparsity);
     println("####---->solveProblem(typeof(jacobian_sparsity): ", typeof(jacobian_sparsity));
@@ -1070,7 +1071,8 @@ function solveProblem(model::Optimizer)
     #println("####---->solveProblem(jacobian_sparsity[4][1]): ", jacobian_sparsity[4][1]);
     #println("####---->solveProblem(jacobian_sparsity[4][2]): ", jacobian_sparsity[4][2]);
 
-    for i=1:3
+    for i=1:10
+        println("-----------------------------> itr: ", i);
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
         df = eval_grad_f_cb(x, df)
@@ -1081,10 +1083,13 @@ function solveProblem(model::Optimizer)
         println("####---->solveProblem(dE): ", dE);
         mu_nu = df' * p / (1 - model.options["rho"]);
         println("####---->Before solveProblem(mu): ", mu);
+        mu_temp = df' * p / (1 - model.options["rho"]) / sum(abs.(E));
+        mu = (mu < mu_temp) ? mu_temp : mu;
+        #=
         for mui = 1:length(num_constraints)
             mu_temp = 1.1*mu_nu/abs(E[mui]);
             mu[mui] = (mu[mui]<mu_temp) ? mu_temp : mu[mui];
-        end
+        end =#
         println("####---->After solveProblem(mu): ", mu);
         c_init[1:num_variables] .= df;
         c_init[num_variables+1] = f;

@@ -15,7 +15,7 @@ set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
 #MOI.set(model, lp)
 
 @variable(model, X);
-@variable(model, Y);
+#@variable(model, Y);
 @objective(model, Min, X^2 + X);
 @NLconstraint(model, X^2 - X == 2);
 
