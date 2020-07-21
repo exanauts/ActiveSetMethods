@@ -92,7 +92,7 @@ end =#
 
 function Optimizer(;kwargs...)
     options_dict = Dict{String, Any}()
-    options_dict = Dict("eta"=>0.45,"tau"=>0.9,"rho"=>0.9);
+    options_dict = Dict("eta"=>0.45,"tau"=>0.9,"rho"=>0.9,"max_iter"=>15,"alpha_lb"=>1e-6);
     # TODO: Setting options through the constructor could be deprecated in the
     # future.
     lp_solver = GLPK.Optimizer
@@ -1071,7 +1071,7 @@ function solveProblem(model::Optimizer)
     #println("####---->solveProblem(jacobian_sparsity[4][1]): ", jacobian_sparsity[4][1]);
     #println("####---->solveProblem(jacobian_sparsity[4][2]): ", jacobian_sparsity[4][2]);
 
-    for i=1:10
+    for i=1:model.options["max_iter"]
         println("-----------------------------> itr: ", i);
         f = eval_f_cb(x);
         println("####---->solveProblem(f): ", f);
@@ -1085,20 +1085,35 @@ function solveProblem(model::Optimizer)
         println("####---->Before solveProblem(mu): ", mu);
         mu_temp = df' * p / (1 - model.options["rho"]) / sum(abs.(E));
         mu = (mu < mu_temp) ? mu_temp : mu;
-        #=
-        for mui = 1:length(num_constraints)
-            mu_temp = 1.1*mu_nu/abs(E[mui]);
-            mu[mui] = (mu[mui]<mu_temp) ? mu_temp : mu[mui];
-        end =#
+
+        calc_phi(x) = eval_f_cb(x) + mu * sum(abs.(eval_g_cb(x, E)));
+        calc_D1(x) = eval_grad_f_cb(x, df)' * p - mu * sum(abs.(eval_g_cb(x, E)));
+
+
         println("####---->After solveProblem(mu): ", mu);
         c_init[1:num_variables] .= df;
         c_init[num_variables+1] = f;
         for Ai = 1:length(jacobian_sparsity)
             A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
         end
-        #(p,optimality) = solve_lp(model.lp_solver,0, df, dE,E,[],[],)
         (p,optimality) = solve_lp(model.lp_solver,c_init,A,E,constraint_lb,constraint_ub,model.sense,mu)
-        #p = -E[1]/dE[1]
+
+        # phi_k1 =
+        # phi_k =
+        temp1 = calc_phi(x);
+        temp11 = calc_phi(x+alpha * p);
+        temp2 = calc_D1(x);
+
+        println("--------------------------> calc_phi(x): ", temp1)
+        println("--------------------------> calc_phi(x+ap): ", temp11)
+        println("--------------------------> calc_D1(x): ", temp2)
+
+        alpha = 1;
+        # while((calc_phi(x+alpha * p) > calc_phi(x) + eta * alpha * calc_D1(x)) && (alpha > model.options["alpha_lb"]))
+        #     alpha = alpha * tau;
+        #     println("--------------------------> alpha: ", alpha)
+        # end
+        println("-------------------------->after alpha: ", alpha)
         println("####---->solveProblem(p): ", p);
         for j=1:num_constraints
             lam_[j] = df[1]/dE[j];
