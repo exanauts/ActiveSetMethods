@@ -1,4 +1,4 @@
-push!(LOAD_PATH, ".");
+push!(LOAD_PATH, "../src");
 using JuMP
 using Ipopt
 
@@ -16,4 +16,3 @@ println("________________________________________");
 JuMP.optimize!(model);
 
 println("Xsol = ",JuMP.value.(X));
-

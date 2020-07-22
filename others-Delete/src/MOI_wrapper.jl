@@ -25,7 +25,7 @@ end
 ConstraintInfo(func, set) = ConstraintInfo(func, set, nothing)
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
-    inner::Union{SloptProblem,Nothing}
+    inner::Union{IpoptProblem,Nothing}
 
     # Problem data.
     variable_info::Vector{VariableInfo}
@@ -72,29 +72,39 @@ function MOI.eval_hessian_lagrangian(::EmptyNLPEvaluator, H, x, σ, μ)
     return
 end
 
+
 empty_nlp_data() = MOI.NLPBlockData([], EmptyNLPEvaluator(), false)
 
+#=
+
+function Optimizer(;options...)
+    println("checked 1")
+    options_dict = Dict{String, Any}()
+    # TODO: Setting options through the constructor could be deprecated in the
+    # future.
+    for (name, value) in options
+        options_dict[string(name)] = value
+    end
+    return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
+                     nothing, [], [], [], [], [], [], nothing,Gurobi.Optimizer(),
+                     false, options_dict, NaN)
+end =#
 
 function Optimizer(;kwargs...)
     options_dict = Dict{String, Any}()
-    options_dict = Dict("eta"=>0.45,
-                        "tau"=>0.9,
-                        "rho"=>0.9,
-                        "max_iter"=>15,
-                        "alpha_lb"=>1e-6);
-    lp_solver = GLPK.Optimizer
+    options_dict = Dict("eta"=>0.45,"tau"=>0.9,"rho"=>0.9,"max_iter"=>15,"alpha_lb"=>1e-6);
     # TODO: Setting options through the constructor could be deprecated in the
     # future.
-    # for (name, value) in kwargs
-    # 	if name == "lp_solver"
-    # 		lp_solver = value
-    #     else
-    #         	options_dict[string(name)] = value
-    #     end
-    # end
+    lp_solver = GLPK.Optimizer
+    for (name, value) in kwargs
+    	if name == "lp_solver"
+    		lp_solver = value
+        else
+            	options_dict[string(name)] = value
+        end
+    end
     return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
-                     nothing, [], [], [], [], [], [], nothing, lp_solver,
-                     false, options_dict, NaN);
+                     nothing, [], [], [], [], [], [],nothing,lp_solver,false, options_dict, NaN)
 end
 
 MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
@@ -105,12 +115,12 @@ function MOI.supports(::Optimizer,
 end
 
 function MOI.supports(::Optimizer,
-                      ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}})
+    ::MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}})
     return true
 end
 
 function MOI.supports(::Optimizer,
-                      ::MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}})
+    ::MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{Float64}})
     return true
 end
 
@@ -143,7 +153,7 @@ function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
     return MOIU.default_copy_to(model, src, copy_names)
 end
 
-MOI.get(::Optimizer, ::MOI.SolverName) = "Slopt"
+MOI.get(::Optimizer, ::MOI.SolverName) = "Ipopt"
 
 MOI.get(model::Optimizer, ::MOI.ObjectiveFunctionType) = typeof(model.objective)
 
@@ -491,6 +501,15 @@ function MOI.set(model::Optimizer, ::MOI.ObjectiveFunction,
     model.objective = func
     return
 end
+
+# In setting up the data for Ipopt, we order the constraints as follows:
+# - linear_le_constraints
+# - linear_ge_constraints
+# - linear_eq_constraints
+# - quadratic_le_constraints
+# - quadratic_ge_constraints
+# - quadratic_eq_constraints
+# - nonlinear constraints from nlp_data
 
 linear_le_offset(model::Optimizer) = 0
 linear_ge_offset(model::Optimizer) = length(model.linear_le_constraints)
@@ -1101,33 +1120,33 @@ function solveProblem(model::Optimizer)
 
 
 
-        # temp_ind = 0
-        # while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > model.options["alpha_lb"]))
-        #     temp_ind+=1;
-        #     if (phi_x_p > phi_x && mod_E_x_p > mod_E_x)
-        #         println("Correction step for Maratos effect");
-        #         E_x_p = eval_g_cb(x+alpha*p, E)
-        #         for bi = 1:length(jacobian_sparsity)
-        #             E_x_p[jacobian_sparsity[bi][1]]-=dE[bi]*p[jacobian_sparsity[bi][2]];
-        #         end
-        #         (pm,optimality) = solve_lp(model.lp_solver,c_init,A,E_x_p,constraint_lb,constraint_ub,model.sense,mu)
-        #         println("p_old: ", p);
-        #         println("p_correct: ",pm);
-        #         p .= p+pm;
-        #         println("p_new: ", p);
-        #     else
-        #         alpha = alpha * tau;
-        #     end
-        #     mod_E_x = sum(abs.(eval_g_cb(x, E)))
-        #     mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
-        #     phi_x = calc_phi(x,mod_E_x);
-        #     phi_x_p = calc_phi(x+alpha * p, mod_E_x_p);
-        #     D1_x = calc_D1(x,mod_E_x);
-        #     #println("--------------------------> alpha: ", alpha)
-        #     if (temp_ind>5)
-        #         break
-        #     end
-        # end
+        temp_ind = 0
+        while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > model.options["alpha_lb"]))
+            temp_ind+=1;
+            if (phi_x_p > phi_x && mod_E_x_p > mod_E_x)
+                println("Correction step for Maratos effect");
+                E_x_p = eval_g_cb(x+alpha*p, E)
+                for bi = 1:length(jacobian_sparsity)
+                    E_x_p[jacobian_sparsity[bi][1]]-=dE[bi]*p[jacobian_sparsity[bi][2]];
+                end
+                (pm,optimality) = solve_lp(model.lp_solver,c_init,A,E_x_p,constraint_lb,constraint_ub,model.sense,mu)
+                println("p_old: ", p);
+                println("p_correct: ",pm);
+                p .= p+pm;
+                println("p_new: ", p);
+            else
+                alpha = alpha * tau;
+            end
+            mod_E_x = sum(abs.(eval_g_cb(x, E)))
+            mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
+            phi_x = calc_phi(x,mod_E_x);
+            phi_x_p = calc_phi(x+alpha * p, mod_E_x_p);
+            D1_x = calc_D1(x,mod_E_x);
+            #println("--------------------------> alpha: ", alpha)
+            if (temp_ind>5)
+                break
+            end
+        end
         println("-------------------------->after alpha: ", alpha)
         println("####---->solveProblem(p): ", p);
         for j=1:num_constraints
@@ -1392,7 +1411,6 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-----********--->before solve model.innern: ", model.inner);
 
     solveProblem(model)
-    solveProblem1(model.inner)
 
     #println("##########-----********--->after solve model.innern: ", model.inner);
 
