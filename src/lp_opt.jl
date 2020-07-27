@@ -31,9 +31,9 @@ b1 = sprand(Float64, 6, 1.0);
 b2 = sprand(Float64, 4, 0.0)
 =#
 
-function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense,mu)
+function solve_lp(c_init,A,b,constraint_lb,constraint_ub,mu)
 
-	model = solver()
+	model = Options_["LP_solver"]()
 	n = A.n;
 	m = A.m;
 
@@ -53,7 +53,7 @@ function solve_lp(solver,c_init,A,b,constraint_lb,constraint_ub,sense,mu)
 	MOI.set(model,
 	MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
 	MOI.ScalarAffineFunction(terms, c0))
-	MOI.set(model, MOI.ObjectiveSense(), sense)
+	MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 	for i=1:m
 		Ai = A[i,:];

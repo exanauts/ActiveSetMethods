@@ -1,8 +1,8 @@
 push!(LOAD_PATH, "../src");
 using JuMP
-using Slopt, Gurobi
+using Nlopt, Gurobi
 
-solver = Slopt.Optimizer
+solver = Nlopt.Optimizer
 
 #model = Model(optimizer_with_attributes(solver, "lp_solver" => Gurobi.Optimizer()));
 model = Model(solver);

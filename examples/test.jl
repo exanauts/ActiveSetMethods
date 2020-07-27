@@ -1,13 +1,14 @@
 push!(LOAD_PATH, "../src");
 using JuMP
-using Slopt, Gurobi
+using Nlopt, Gurobi
 
-solver = Slopt.Optimizer
+solver = Nlopt.Optimizer
 
 #model = Model(optimizer_with_attributes(solver, "lp_solver" => Gurobi.Optimizer()));
 model = Model(solver);
-#set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
+#set_optimizer_attribute(model, "LP_solver", Gurobi.Optimizer)
 set_optimizer_attribute(model, "eta", 0.01)
+set_optimizer_attribute(model, "method", "Ipopt")
 
 #optimizer_with_attributes(lp_solver=Gurobi.Optimizer())
 #set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
@@ -30,3 +31,5 @@ println("________________________________________");
 JuMP.optimize!(model);
 
 println("Xsol = ",JuMP.value.(X));
+
+println("Status: ", termination_status(model));
