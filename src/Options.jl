@@ -1,10 +1,12 @@
 Options_ = Dict(
 "method"=>"SLP",
 "algorithm"=>"Line Search",
-"max_iter"=>15,
+"max_iter"=>100,
+"max_iter_inner"=>15,
 "LP_solver"=>GLPK.Optimizer,
 "time_limit"=>Inf,
-"eta"=>0.45,
+"epsilon"=>1e-6,
+"eta"=>0.015,
 "tau"=>0.9,
 "rho"=>0.9,
 "alpha_lb"=>1e-6);

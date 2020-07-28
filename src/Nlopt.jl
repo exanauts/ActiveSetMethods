@@ -1,5 +1,5 @@
 module Nlopt
-using LinearAlgebra, GLPK, SparseArrays
+using LinearAlgebra, SparseArrays, GLPK, Ipopt
 include("lp_opt.jl")
 include("Options.jl")
 include("struct.jl")
@@ -29,11 +29,7 @@ function solveNloptProblem(model::NloptProblem)
 
     #ret = SLP_line_search(model);
     if (Options_["method"] == "Ipopt")
-        println("Checking for Ipopt Module ...");
-        isa(Ipopt, Module);
-        println("names(Main): ", names(Main));
-        try isa(Ipopt, Module); catch; println("Ipopt Module is not loaded"); end
-        ret = Ipopt_method(model)
+        ret = Ipopt_method(model);
     elseif (Options_["method"] == "SLP" && Options_["algorithm"] == "Line Search")
         ret = SLP_line_search(model);
     end

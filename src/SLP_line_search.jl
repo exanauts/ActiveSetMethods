@@ -49,7 +49,7 @@ function SLP_line_search(model::NloptProblem)
     #println("####---->solveProblem(jacobian_sparsity[4][1]): ", jacobian_sparsity[4][1]);
     #println("####---->solveProblem(jacobian_sparsity[4][2]): ", jacobian_sparsity[4][2]);
 
-    for i=1:10  #model.options["max_iter"]
+    for i=1:Options_["max_iter"]
         println("-----------------------------> itr: ", i);
         f = model.eval_f(x);
         println("####---->solveProblem(f): ", f);
@@ -98,33 +98,33 @@ function SLP_line_search(model::NloptProblem)
 
 
 
-        # temp_ind = 0
-        # while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > model.options["alpha_lb"]))
-        #     temp_ind+=1;
-        #     if (phi_x_p > phi_x && mod_E_x_p > mod_E_x)
-        #         println("Correction step for Maratos effect");
-        #         E_x_p = eval_g_cb(x+alpha*p, E)
-        #         for bi = 1:length(jacobian_sparsity)
-        #             E_x_p[jacobian_sparsity[bi][1]]-=dE[bi]*p[jacobian_sparsity[bi][2]];
-        #         end
-        #         (pm,optimality) = solve_lp(model.lp_solver,c_init,A,E_x_p,constraint_lb,constraint_ub,model.sense,mu)
-        #         println("p_old: ", p);
-        #         println("p_correct: ",pm);
-        #         p .= p+pm;
-        #         println("p_new: ", p);
-        #     else
-        #         alpha = alpha * tau;
-        #     end
-        #     mod_E_x = sum(abs.(eval_g_cb(x, E)))
-        #     mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
-        #     phi_x = calc_phi(x,mod_E_x);
-        #     phi_x_p = calc_phi(x+alpha * p, mod_E_x_p);
-        #     D1_x = calc_D1(x,mod_E_x);
-        #     #println("--------------------------> alpha: ", alpha)
-        #     if (temp_ind>5)
-        #         break
-        #     end
-        # end
+        temp_ind = 0
+        while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > Options_["alpha_lb"]))
+            temp_ind+=1;
+            # if (phi_x_p > phi_x && mod_E_x_p > mod_E_x)
+            #     println("Correction step for Maratos effect");
+            #     E_x_p = eval_g_cb(x+alpha*p, E)
+            #     for bi = 1:length(jacobian_sparsity)
+            #         E_x_p[jacobian_sparsity[bi][1]]-=dE[bi]*p[jacobian_sparsity[bi][2]];
+            #     end
+            #     (pm,optimality) = solve_lp(model.lp_solver,c_init,A,E_x_p,constraint_lb,constraint_ub,model.sense,mu)
+            #     println("p_old: ", p);
+            #     println("p_correct: ",pm);
+            #     p .= p+pm;
+            #     println("p_new: ", p);
+            # else
+                alpha = alpha * tau;
+            # end
+            # mod_E_x = sum(abs.(eval_g_cb(x, E)))
+            # mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
+            phi_x = model.eval_merit(x, E, mu);
+            phi_x_p = model.eval_merit(x+alpha * p, E, mu);
+            D1_x = model.eval_D(x, df, E, mu, p);
+            #println("--------------------------> alpha: ", alpha)
+            if (temp_ind>Options_["max_iter_inner"])
+                break
+            end
+        end
         println("-------------------------->after alpha: ", alpha)
         println("####---->solveProblem(p): ", p);
         for j=1:num_constraints
@@ -145,7 +145,7 @@ function SLP_line_search(model::NloptProblem)
         x .= x + alpha .* p;
         lam .= lam + alpha .* plam;
         println("X: ", x);
-        if (sum(abs.(p))==0)
+        if (sum(abs.(p)) <= Options_["epsilon"])
             break;
         end
     end

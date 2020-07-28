@@ -14,6 +14,6 @@ function Ipopt_method(model::NloptProblem)
     eval_h = model.eval_h
     prob = createProblem(n, x_L, x_U, m, g_L, g_U, length(jacobian_sparsity), 0,
                      eval_f, eval_g, eval_grad_f, eval_jac_g)
-    ret = 0;
+    ret = solveProblem(prob);
     return Int(ret)
 end
