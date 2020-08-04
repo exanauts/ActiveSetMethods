@@ -1,10 +1,5 @@
 function SLP_line_search(model::NloptProblem)
-    println("############## ------- > n: ", model.n);
-    println("############## ------- > n: ", model.m);
-
-    final_objval = [0.0]
-    ret = 0;
-
+    ret = 5
     num_variables = model.n;
     num_constraints = model.m;
     constraint_lb = model.g_L
@@ -14,10 +9,11 @@ function SLP_line_search(model::NloptProblem)
 
     c_init = spzeros(num_variables+1);
     A = spzeros(num_constraints,num_variables);
-    mu = 0.01;
+
     x = zeros(num_variables)
+
     p = ones(num_variables)
-    df = zeros(num_variables)
+    df = ones(num_variables)
     E = zeros(num_constraints)
 
     dE = zeros(length(jacobian_sparsity))
@@ -29,40 +25,52 @@ function SLP_line_search(model::NloptProblem)
     tau = Options_["tau"];
     rho = Options_["rho"];
 
+    mu = Options_["mu"];
 
 
 
+
+    println("model.x_L: ", model.x_L);
+    println("model.x_U: ", model.x_U);
     println("constraint_lb: ", constraint_lb);
     println("constraint_ub: ", constraint_ub);
 
+    for i=1:num_variables
+        if model.x_L[i] != -Inf && model.x_U[i] != Inf
+            x[i] = rand(model.x_L[i]:model.x_U[i])
+        end
+    end
 
     alpha = 1;
+    norm_E_a = 0.0;
 
 
     println("####---->solveProblem(num_variables): ", num_variables);
     println("####---->solveProblem(num_constraints): ", num_constraints);
     println("####---->solveProblem(jacobian_sparsity): ", jacobian_sparsity);
-    println("####---->solveProblem(typeof(jacobian_sparsity): ", typeof(jacobian_sparsity));
-    println("####---->solveProblem(size(jacobian_sparsity): ", size(jacobian_sparsity));
-    println("####---->solveProblem(length(jacobian_sparsity): ", length(jacobian_sparsity));
-    println("####---->solveProblem(jacobian_sparsity[1]): ", jacobian_sparsity[1]);
     #println("####---->solveProblem(jacobian_sparsity[4][1]): ", jacobian_sparsity[4][1]);
     #println("####---->solveProblem(jacobian_sparsity[4][2]): ", jacobian_sparsity[4][2]);
 
     for i=1:Options_["max_iter"]
         println("-----------------------------> itr: ", i);
+        println("####---->solveProblem(x): ", x);
         f = model.eval_f(x);
         println("####---->solveProblem(f): ", f);
-        df = model.eval_grad_f(x, df)
+        df = model.eval_grad_f(x, zeros(num_variables))
         println("####---->solveProblem(df): ", df);
-        E = model.eval_g(x, E)
+        E = model.eval_g(x, zeros(num_constraints))
+        # println("####---->After solveProblem(constraint_ub): ", constraint_ub);
         println("####---->solveProblem(E): ", E);
-        dE = model.eval_jac_g(x, :opt, [], [], dE)
+        # println("####---->After solveProblem(constraint_lb): ", constraint_lb);
+        dE = model.eval_jac_g(x, :opt, [], [], zeros(length(jacobian_sparsity)))
         println("####---->solveProblem(dE): ", dE);
         mu_nu = df' * p / (1 - rho);
         println("####---->Before solveProblem(mu): ", mu);
-        mu_temp = df' * p / (1 - rho) / sum(abs.(E));
-        mu = (mu < mu_temp) ? mu_temp : mu;
+
+        norm_E = model.eval_norm_E(x,zeros(num_constraints),constraint_lb,constraint_ub)
+        
+        mu_temp = df' * p / (1 - rho) / norm_E;
+        mu = (mu < mu_temp && norm_E > 0) ? mu_temp : mu;
 
         # calc_phi(x) = eval_f_cb(x) + mu * sum(abs.(eval_g_cb(x, E)));
         # calc_D1(x) = eval_grad_f_cb(x, df)' * p - mu * sum(abs.(eval_g_cb(x, E)));
@@ -74,27 +82,32 @@ function SLP_line_search(model::NloptProblem)
         c_init[1:num_variables] .= df;
         c_init[num_variables+1] = f;
         for Ai = 1:length(jacobian_sparsity)
+            # A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = 1.0;
             A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
+            # println("dE[]: ", dE[Ai])
         end
-        (p,optimality) = solve_lp(c_init,A,E,constraint_lb,constraint_ub,mu)
 
+        (p,opt_status) = solve_lp(c_init,A,E,model.x_L,model.x_U,constraint_lb,constraint_ub,mu,x)
+
+        # println("norm_E from optimization: ", norm_E)
+        # println("norm_E from function: ", model.eval_norm_E(x+p,E,constraint_lb,constraint_ub))
         # phi_k1 =
         # phi_k =
         alpha = 1;
-        mod_E_x = sum(abs.(model.eval_g(x, E)))
-        mod_E_x_p = sum(abs.(model.eval_g(x+alpha * p, E)))
-        phi_x = model.eval_merit(x, E, mu);
-        phi_x_p = model.eval_merit(x+alpha * p, E, mu);
-        D1_x = model.eval_D(x, df, E, mu, p);
+        # norm_E_mu = model.eval_norm_E(x+alpha*p,zeros(num_constraints),constraint_lb,constraint_ub)
 
-        mod_E_x = sum(abs.(model.eval_g(x, E)))
-        mod_E_x_p = sum(abs.(model.eval_g(x+alpha * p, E)))
+        norm_E_a = model.eval_norm_E(x+alpha*p,zeros(num_constraints),constraint_lb,constraint_ub)
+
+        phi_x = model.eval_merit(x, norm_E, mu);
+        phi_x_p = model.eval_merit(x+alpha * p, norm_E_a, mu);
+        D1_x = model.eval_D(x, df, norm_E, mu, p);
 
         println("--------------------------> calc_phi(x): ", phi_x)
         println("--------------------------> calc_phi(x+ap): ", phi_x_p)
         println("--------------------------> calc_D1(x): ", D1_x)
-        println("--------------------------> |E(x)|: ", mod_E_x)
-        println("--------------------------> |E(x+ap)|: ", mod_E_x_p)
+        println("--------------------------> |E(x)|: ", norm_E)
+        println("--------------------------> |E(x+ap)|: ", norm_E_a)
+
 
 
 
@@ -117,20 +130,27 @@ function SLP_line_search(model::NloptProblem)
             # end
             # mod_E_x = sum(abs.(eval_g_cb(x, E)))
             # mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
-            phi_x = model.eval_merit(x, E, mu);
-            phi_x_p = model.eval_merit(x+alpha * p, E, mu);
-            D1_x = model.eval_D(x, df, E, mu, p);
+            norm_E_a = model.eval_norm_E(x+alpha*p,zeros(num_constraints),constraint_lb,constraint_ub)
+
+            phi_x = model.eval_merit(x, norm_E, mu);
+            phi_x_p = model.eval_merit(x+alpha * p, norm_E_a, mu);
+            D1_x = model.eval_D(x, df, norm_E, mu, p);
             #println("--------------------------> alpha: ", alpha)
             if (temp_ind>Options_["max_iter_inner"])
                 break
             end
         end
         println("-------------------------->after alpha: ", alpha)
+        println("--------------------------> calc_phi(x): ", phi_x)
+        println("--------------------------> calc_phi(x+ap): ", phi_x_p)
+        println("--------------------------> calc_D1(x): ", D1_x)
+        println("--------------------------> |E(x)|: ", norm_E)
+        println("--------------------------> |E(x+ap)|: ", norm_E_a)
         println("####---->solveProblem(p): ", p);
-        for j=1:num_constraints
-            lam_[j] = df[1]/dE[j];
-            plam[j] = lam_[j] - lam[j]
-        end
+        # for j=1:num_constraints
+        #     lam_[j] = df[1]/dE[j];
+        #     plam[j] = lam_[j] - lam[j]
+        # end
         #lam_[1] = df[1]/dE[1];
         #lam_[2] = df[1]/dE[2];
         #plam[1] = lam_[1] - lam[1]
@@ -141,11 +161,12 @@ function SLP_line_search(model::NloptProblem)
         #println("typeof(alpha): ", typeof(alpha));
         #println("typeof(p): ", typeof(p));
         #println("length(p): ", length(p));
-        println("p: ", p);
+        # println("p: ", p);
         x .= x + alpha .* p;
-        lam .= lam + alpha .* plam;
+        # lam .= lam + alpha .* plam;
         println("X: ", x);
         if (sum(abs.(p)) <= Options_["epsilon"])
+            ret = 0
             break;
         end
     end
@@ -166,7 +187,7 @@ function SLP_line_search(model::NloptProblem)
     #println("####---->solveProblem(gx1,2): ", gx1);
     #println("####---->solveProblem(a): ", a);
     #println("####---->solveProblem(prob): ", prob);
-    model.obj_val = final_objval[1]
+    model.obj_val = model.eval_f(x)
     model.status = Int(ret)
     #prob.obj_val = eval_f_cb(x);
     model.x = x;

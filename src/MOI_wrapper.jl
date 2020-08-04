@@ -135,7 +135,7 @@ function MOI.copy_to(model::Optimizer, src::MOI.ModelLike; copy_names = false)
     return MOIU.default_copy_to(model, src, copy_names)
 end
 
-MOI.get(::Optimizer, ::MOI.SolverName) = "Nlopt"
+MOI.get(::Optimizer, ::MOI.SolverName) = "ActiveSetMethods"
 
 MOI.get(model::Optimizer, ::MOI.ObjectiveFunctionType) = typeof(model.objective)
 
@@ -822,351 +822,6 @@ function constraint_bounds(model::Optimizer)
     return constraint_lb, constraint_ub
 end
 
-# function solveProblem(model::Optimizer)
-#
-#     #
-#     println("Model.sense: ", model.sense)
-#     num_variables = length(model.variable_info)
-#     num_linear_le_constraints = length(model.linear_le_constraints)
-#     num_linear_ge_constraints = length(model.linear_ge_constraints)
-#     num_linear_eq_constraints = length(model.linear_eq_constraints)
-#     nlp_row_offset = nlp_constraint_offset(model)
-#     num_quadratic_constraints = nlp_constraint_offset(model) -
-#                                 quadratic_le_offset(model)
-#     num_nlp_constraints = length(model.nlp_data.constraint_bounds)
-#     num_constraints = num_nlp_constraints + nlp_row_offset
-#
-#     evaluator = model.nlp_data.evaluator
-#     features = MOI.features_available(evaluator)
-#     has_hessian = (:Hess in features)
-#     init_feat = [:Grad]
-#     has_hessian && push!(init_feat, :Hess)
-#     num_nlp_constraints > 0 && push!(init_feat, :Jac)
-#
-#     MOI.initialize(evaluator, init_feat)
-#     jacobian_sparsity = jacobian_structure(model)
-#     hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
-#
-#     if model.sense == MOI.MIN_SENSE
-#         objective_scale = 1.0
-#     elseif model.sense == MOI.MAX_SENSE
-#         objective_scale = -1.0
-#     else # FEASIBILITY_SENSE
-#         # TODO: This could produce confusing solver output if a nonzero
-#         # objective is set.
-#         objective_scale = 0.0
-#     end
-#
-#     eval_f_cb(x) = objective_scale * eval_objective(model, x)
-#
-#     # Objective gradient callback
-#     function eval_grad_f_cb(x, grad_f)
-#         eval_objective_gradient(model, grad_f, x)
-#         rmul!(grad_f,objective_scale)
-#         return eval_objective_gradient(model, grad_f, x)
-#     end
-#
-#     # Constraint value callback
-#     eval_g_cb(x, g) = eval_constraint(model, g, x)
-#
-#     # Jacobian callback
-#     function eval_jac_g_cb(x, mode, rows, cols, values)
-#         if mode == :Structure
-#             for i in 1:length(jacobian_sparsity)
-#                 rows[i] = jacobian_sparsity[i][1]
-#                 cols[i] = jacobian_sparsity[i][2]
-#             end
-#         else
-#             eval_constraint_jacobian(model, values, x)
-#         end
-#     end
-#
-#     if has_hessian
-#         # Hessian callback
-#         function eval_h_cb(x, mode, rows, cols, obj_factor,
-#             lambda, values)
-#             if mode == :Structure
-#                 for i in 1:length(hessian_sparsity)
-#                     rows[i] = hessian_sparsity[i][1]
-#                     cols[i] = hessian_sparsity[i][2]
-#                 end
-#             else
-#                 obj_factor *= objective_scale
-#                 eval_hessian_lagrangian(model, values, x, obj_factor, lambda)
-#             end
-#         end
-#     else
-#         eval_h_cb = nothing
-#     end
-#
-#     x_l = [v.lower_bound for v in model.variable_info]
-#     x_u = [v.upper_bound for v in model.variable_info]
-#
-#     constraint_lb, constraint_ub = constraint_bounds(model)
-#
-#     #println("##########-------->x_l: ", x_l);
-#     #println("##########-------->x_u: ", x_u);
-#     #println("##########-------->constraint_lb: ", constraint_lb);
-#     #println("##########-------->constraint_ub: ", constraint_ub);
-#     #println(" ---- Optimize! Parameters End");
-#
-#
-#     model.inner = createProblem(num_variables, x_l, x_u, num_constraints,
-#                             constraint_lb, constraint_ub,
-#                             length(jacobian_sparsity),
-#                             length(hessian_sparsity),
-#                             eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
-#                             eval_h_cb)
-#     #println("##########-----********--->created model.innern: ", model.inner);
-#
-#     # Ipopt crashes by default if NaN/Inf values are returned from the
-#     # evaluation callbacks. This option tells Ipopt to explicitly check for them
-#     # and return Invalid_Number_Detected instead. This setting may result in a
-#     # minor performance loss and can be overwritten by specifying
-#     # check_derivatives_for_naninf="no".
-#     addOption(model.inner, "check_derivatives_for_naninf", "yes")
-#
-#     if !has_hessian
-#         addOption(model.inner, "hessian_approximation", "limited-memory")
-#     end
-#     if num_nlp_constraints == 0 && num_quadratic_constraints == 0
-#         addOption(model.inner, "jac_c_constant", "yes")
-#         addOption(model.inner, "jac_d_constant", "yes")
-#         if !model.nlp_data.has_objective
-#             # We turn on this option if all constraints are linear and the
-#             # objective is linear or quadratic. From the documentation, it's
-#             # unclear if it may also apply if the constraints are at most
-#             # quadratic.
-#             addOption(model.inner, "hessian_constant", "yes")
-#         end
-#     end
-#
-#     # If nothing is provided, the default starting value is 0.0.
-#     model.inner.x = zeros(num_variables)
-#     for (i, v) in enumerate(model.variable_info)
-#         if v.start !== nothing
-#             model.inner.x[i] = v.start
-#         else
-#             if v.has_lower_bound && v.has_upper_bound
-#                 if 0.0 <= v.lower_bound
-#                     model.inner.x[i] = v.lower_bound
-#                 elseif v.upper_bound <= 0.0
-#                     model.inner.x[i] = v.upper_bound
-#                 end
-#             elseif v.has_lower_bound
-#                 model.inner.x[i] = max(0.0, v.lower_bound)
-#             else
-#                 model.inner.x[i] = min(0.0, v.upper_bound)
-#             end
-#         end
-#     end
-#
-#     if model.nlp_dual_start === nothing
-#         model.nlp_dual_start = zeros(Float64, num_nlp_constraints)
-#     end
-#
-#     mult_g_start = [
-#         [info.dual_start for info in model.linear_le_constraints];
-#         [info.dual_start for info in model.linear_ge_constraints];
-#         [info.dual_start for info in model.linear_eq_constraints];
-#         [info.dual_start for info in model.quadratic_le_constraints];
-#         [info.dual_start for info in model.quadratic_ge_constraints];
-#         [info.dual_start for info in model.quadratic_eq_constraints];
-#         model.nlp_dual_start
-#     ]
-#     model.inner.mult_g = [start === nothing ? 0.0 : start
-#                           for start in mult_g_start]
-#     model.inner.mult_x_L = [v.lower_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
-#                             for v in model.variable_info]
-#     model.inner.mult_x_U = [v.upper_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
-#                             for v in model.variable_info]
-#
-#     model.silent && addOption(model.inner, "print_level", 0)
-#
-#     #=for (name, value) in model.options
-#         addOption(model.inner, name, value)
-#     end=#
-#
-#     #
-#     println("--------------->model.options: ", model.options);
-#     prob = model.inner
-#     final_objval = [0.0]
-#     ret = 0;
-#     #ret = ccall((:IpoptSolve, libipopt),
-#     #Cint, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Ptr{Float64}, Any),
-#     #prob.ref, prob.x, prob.g, final_objval, prob.mult_g, prob.mult_x_L, prob.mult_x_U, prob)
-#     #=
-#     println("####---->solveProblem(prob.ref): ", prob.ref);
-#     println("####---->solveProblem(typeof(prob.ref)): ", typeof(prob.ref));
-#     println("####---->solveProblem(prob.x): ", prob.x);
-#     println("####---->solveProblem(typeof(prob.x)): ", typeof(prob.x));
-#     println("####---->solveProblem(prob.g): ", prob.g);
-#     println("####---->solveProblem(typeof(prob.g)): ", typeof(prob.g));
-#     println("####---->solveProblem(final_objval): ", final_objval);
-#     println("####---->solveProblem(typeof(final_objval)): ", typeof(final_objval));
-#     println("####---->solveProblem(prob.mult_g): ", prob.mult_g);
-#     println("####---->solveProblem(typeof(prob.mult_g)): ", typeof(prob.mult_g));
-#     println("####---->solveProblem(prob.mult_x_L): ", prob.mult_x_L);
-#     println("####---->solveProblem(typeof(prob.mult_x_L)): ", typeof(prob.mult_x_L));
-#     println("####---->solveProblem(prob.mult_x_U): ", prob.mult_x_U);
-#     println("####---->solveProblem(typeof(prob.mult_x_U)): ", typeof(prob.mult_x_U));=#
-#
-#     constraint_lb, constraint_ub = constraint_bounds(model)
-#     println("Sense: ",model.sense);
-#     println("constraint_lb: ", constraint_lb);
-#     println("constraint_ub: ", constraint_ub);
-#     c_init = spzeros(num_variables+1);
-#     A = spzeros(num_constraints,num_variables);
-#     mu = 0.01;
-#     x = zeros(num_variables)
-#     p = ones(num_variables)
-#     df = zeros(num_variables)
-#     E = zeros(num_constraints)
-#     dE = zeros(length(jacobian_sparsity))
-#     lam = zeros(num_constraints)
-#     plam = zeros(num_constraints)
-#     lam_ = zeros(num_constraints)
-#     alpha = 1;
-#     eta = model.options["eta"];
-#     tau = model.options["tau"];
-#     rho = model.options["rho"];
-#
-#     println("####---->solveProblem(num_variables): ", num_variables);
-#     println("####---->solveProblem(num_constraints): ", num_constraints);
-#     println("####---->solveProblem(jacobian_sparsity): ", jacobian_sparsity);
-#     println("####---->solveProblem(typeof(jacobian_sparsity): ", typeof(jacobian_sparsity));
-#     println("####---->solveProblem(size(jacobian_sparsity): ", size(jacobian_sparsity));
-#     println("####---->solveProblem(length(jacobian_sparsity): ", length(jacobian_sparsity));
-#     println("####---->solveProblem(jacobian_sparsity[1]): ", jacobian_sparsity[1]);
-#     #println("####---->solveProblem(jacobian_sparsity[4][1]): ", jacobian_sparsity[4][1]);
-#     #println("####---->solveProblem(jacobian_sparsity[4][2]): ", jacobian_sparsity[4][2]);
-#
-#     for i=1:1  #model.options["max_iter"]
-#         println("-----------------------------> itr: ", i);
-#         f = eval_f_cb(x);
-#         println("####---->solveProblem(f): ", f);
-#         df = eval_grad_f_cb(x, df)
-#         println("####---->solveProblem(df): ", df);
-#         E = eval_g_cb(x, E)
-#         println("####---->solveProblem(E): ", E);
-#         dE = eval_constraint_jacobian(model, dE, x)
-#         println("####---->solveProblem(dE): ", dE);
-#         mu_nu = df' * p / (1 - model.options["rho"]);
-#         println("####---->Before solveProblem(mu): ", mu);
-#         mu_temp = df' * p / (1 - model.options["rho"]) / sum(abs.(E));
-#         mu = (mu < mu_temp) ? mu_temp : mu;
-#
-#         calc_phi(x) = eval_f_cb(x) + mu * sum(abs.(eval_g_cb(x, E)));
-#         calc_D1(x) = eval_grad_f_cb(x, df)' * p - mu * sum(abs.(eval_g_cb(x, E)));
-#         calc_phi(x,mod_E) = eval_f_cb(x) + mu * mod_E;
-#         calc_D1(x,mod_E) = eval_grad_f_cb(x, df)' * p - mu * mod_E;
-#
-#
-#         println("####---->After solveProblem(mu): ", mu);
-#         c_init[1:num_variables] .= df;
-#         c_init[num_variables+1] = f;
-#         for Ai = 1:length(jacobian_sparsity)
-#             A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
-#         end
-#         (p,optimality) = solve_lp(c_init,A,E,constraint_lb,constraint_ub,mu)
-#
-#         # phi_k1 =
-#         # phi_k =
-#         alpha = 1;
-#         mod_E_x = sum(abs.(eval_g_cb(x, E)))
-#         mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
-#         phi_x = calc_phi(x,mod_E_x);
-#         phi_x_p = calc_phi(x+alpha * p, mod_E_x_p);
-#         D1_x = calc_D1(x,mod_E_x);
-#
-#         mod_E_x = sum(abs.(eval_g_cb(x, E)))
-#         mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
-#
-#         println("--------------------------> calc_phi(x): ", phi_x)
-#         println("--------------------------> calc_phi(x+ap): ", phi_x_p)
-#         println("--------------------------> calc_D1(x): ", D1_x)
-#         println("--------------------------> |E(x)|: ", mod_E_x)
-#         println("--------------------------> |E(x+ap)|: ", mod_E_x_p)
-#
-#
-#
-#         # temp_ind = 0
-#         # while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > model.options["alpha_lb"]))
-#         #     temp_ind+=1;
-#         #     if (phi_x_p > phi_x && mod_E_x_p > mod_E_x)
-#         #         println("Correction step for Maratos effect");
-#         #         E_x_p = eval_g_cb(x+alpha*p, E)
-#         #         for bi = 1:length(jacobian_sparsity)
-#         #             E_x_p[jacobian_sparsity[bi][1]]-=dE[bi]*p[jacobian_sparsity[bi][2]];
-#         #         end
-#         #         (pm,optimality) = solve_lp(model.lp_solver,c_init,A,E_x_p,constraint_lb,constraint_ub,model.sense,mu)
-#         #         println("p_old: ", p);
-#         #         println("p_correct: ",pm);
-#         #         p .= p+pm;
-#         #         println("p_new: ", p);
-#         #     else
-#         #         alpha = alpha * tau;
-#         #     end
-#         #     mod_E_x = sum(abs.(eval_g_cb(x, E)))
-#         #     mod_E_x_p = sum(abs.(eval_g_cb(x+alpha * p, E)))
-#         #     phi_x = calc_phi(x,mod_E_x);
-#         #     phi_x_p = calc_phi(x+alpha * p, mod_E_x_p);
-#         #     D1_x = calc_D1(x,mod_E_x);
-#         #     #println("--------------------------> alpha: ", alpha)
-#         #     if (temp_ind>5)
-#         #         break
-#         #     end
-#         # end
-#         println("-------------------------->after alpha: ", alpha)
-#         println("####---->solveProblem(p): ", p);
-#         for j=1:num_constraints
-#             lam_[j] = df[1]/dE[j];
-#             plam[j] = lam_[j] - lam[j]
-#         end
-#         #lam_[1] = df[1]/dE[1];
-#         #lam_[2] = df[1]/dE[2];
-#         #plam[1] = lam_[1] - lam[1]
-#         #plam[2] = lam_[2] - lam[2]
-#         #println("typeof(x): ", typeof(x));
-#         #println("length(x): ", length(x));
-#         #println("alpha: ", alpha);
-#         #println("typeof(alpha): ", typeof(alpha));
-#         #println("typeof(p): ", typeof(p));
-#         #println("length(p): ", length(p));
-#         println("p: ", p);
-#         x .= x + alpha .* p;
-#         lam .= lam + alpha .* plam;
-#         println("X: ", x);
-#         if (sum(abs.(p))==0)
-#             break;
-#         end
-#     end
-#
-#
-#     #df = eval_g_cb(x)
-#     #E =
-#     #dE =
-#     #H =
-#     #a = eval_objective(model, [4.0])
-#     #gx2 = eval_g_cb([4.0], [1,2])
-#     #println("####---->solveProblem(gx2)x=4: ", gx2);
-#     #println("####---->solveProblem(model.inner.g): ", model.inner.g);
-#
-#     #gx1 = eval_constraint(model.inner, [0.0,0.0], [2])
-#
-#     #a = prob.eval_f_cb(4);
-#     #println("####---->solveProblem(gx1,2): ", gx1);
-#     #println("####---->solveProblem(a): ", a);
-#     #println("####---->solveProblem(prob): ", prob);
-#     prob.obj_val = final_objval[1]
-#     prob.status = Int(ret)
-#     prob.obj_val = eval_f_cb(x);
-#     prob.x = x;
-#     #println("####---->solveProblem(ret)", ret);
-#
-#     return Int(ret)
-# end
-
 function MOI.optimize!(model::Optimizer)
     start_time = time()
     num_variables = length(model.variable_info)
@@ -1257,14 +912,36 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-------->constraint_ub: ", constraint_ub);
     #println(" ---- Optimize! Parameters End");
 
-    eval_merit(x, E, mu) = eval_f_cb(x) + mu * sum(abs.(eval_g_cb(x, E)));
-    eval_D(x, df, E, mu, p) = eval_grad_f_cb(x, df)' * p - mu * sum(abs.(eval_g_cb(x, E)));
+    eval_merit(x, norm_E, mu) = eval_f_cb(x) + mu * norm_E;
+    eval_D(x, df, norm_E, mu, p) = eval_grad_f_cb(x, df)' * p - mu * norm_E;
+    #TODO Make eval_norm_E more robust, it might fail for some constraints
+    function eval_norm_E(x,E1,L,U)
+        E_temp = eval_g_cb(x, E1);
+        # println("U inside eval_norm_E: ", U)
+        # println("E inside eval_norm_E: ", E)
+        # println("L inside eval_norm_E: ", L)
+
+        for i=1:length(E_temp)
+            if E_temp[i] > U[i]
+                E_temp[i] = E_temp[i] - U[i]
+            elseif E_temp[i] < L[i]
+                E_temp[i] = L[i] - E_temp[i]
+            else
+                E_temp[i] = 0.0;
+            end
+             # E[i] = (E[i] >= U[i]) ? E[i] - U[i] : 0.0;
+             # E[i] = (E[i] <= L[i]) ? L[i] - E[i] : 0.0;
+             # E[i] = (E[i] <= U[i] && E[i] >= L[i]) ? 0.0 : E[i];
+        end
+        # println("E inside eval_norm_E: ", E)
+        return sum(abs.(E_temp))
+    end
 
 
     model.inner = createNloptProblem(num_variables, x_l, x_u, num_constraints,
                             constraint_lb, constraint_ub, jacobian_sparsity,hessian_sparsity,
                             eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
-                            eval_merit,eval_D,eval_h_cb)
+                            eval_norm_E,eval_merit,eval_D,eval_h_cb)
     #println("##########-----********--->created model.innern: ", model.inner);
 
     # Ipopt crashes by default if NaN/Inf values are returned from the
