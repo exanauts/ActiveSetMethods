@@ -1,4 +1,4 @@
-![ActiveSetMethods](https://github.com/exanauts/ActiveSetMethods/blob/master/src/logo/Logo.png "ActiveSetMethods")
+![ActiveSetMethods](https://github.com/exanauts/ActiveSetMethods/blob/master/src/logo/logo.png "ActiveSetMethods")
 ---
 # Nlopt
 
