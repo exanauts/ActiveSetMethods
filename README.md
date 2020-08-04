@@ -1,4 +1,4 @@
-![Nlopt logo](https://github.com/ssadat/Nlopt/blob/master/logo/Logo-1.png "Nlopt logo")
+![ActiveSetMethods](https://github.com/ssadat/Nlopt/blob/master/src/logo/Logo.png "ActiveSetMethods")
 ---
 # Nlopt
 
