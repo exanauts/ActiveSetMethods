@@ -1,4 +1,5 @@
 # ActiveSetMethods.jl
+[![Build Status](https://travis-ci.com/exanauts/ActiveSetMethods.svg?token=3N6HLyM8rqygf5Rmoqzp&branch=master)](https://travis-ci.com/exanauts/ActiveSetMethods)
 
 This is a Julia package that implements active set methods for continuous nonlinear optimization.
 The package currently implements a sequential linear programming method based on line search.
