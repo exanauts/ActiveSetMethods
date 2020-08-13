@@ -1,9 +1,11 @@
 module ActiveSetMethods
-using LinearAlgebra, SparseArrays, GLPK
+
+using LinearAlgebra, SparseArrays
+using GLPK # TODO: This needs to be removed.
+
 include("lp_opt.jl")
 include("Options.jl")
 include("struct.jl")
-include("functions.jl")
 include("SLP_line_search.jl")
 
 
