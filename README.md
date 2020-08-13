@@ -1,17 +1,25 @@
-![ActiveSetMethods](https://github.com/exanauts/ActiveSetMethods/blob/master/src/logo/logo.png "ActiveSetMethods")
----
-# ActiveSetMethods
+# ActiveSetMethods.jl
+[![Build Status](https://travis-ci.com/exanauts/ActiveSetMethods.svg?token=3N6HLyM8rqygf5Rmoqzp&branch=master)](https://travis-ci.com/exanauts/ActiveSetMethods)
 
-ActiveSetMethods (Active Set Methods) is a nonlinear solver based on various iterative methods and algorihms such as linear search and trust region algorithms using sequential linear programming (SLP) and Quadratic Sequential Programing (QLP) methods. 
+This is a Julia package that implements active set methods for continuous nonlinear optimization.
+The package currently implements a sequential linear programming method based on line search.
 
-## Using ActiveSetMethods with JuMP
+## Installation
 
-For example, consider the following quadratic optimization problem
+```julia
+]add https://github.com/exanauts/ActiveSetMethods.jl
 ```
-        min   x^2 + x 
-        s.t.  x^2 - x = 2
+
+## Example
+
+Consider the following quadratic optimization problem
+
 ```
-This problem can be solved by the following code using [ActiveSetMethods](https://github.com/ssadat/Nopt) and [JuMP](https://github.com/JuliaOpt/JuMP.jl). 
+min   x^2 + x 
+s.t.  x^2 - x = 2
+```
+
+This problem can be solved by the following code snippet:
 ```julia
 # Load packages
 using ActiveSetMethods, JuMP
@@ -32,3 +40,6 @@ JuMP.optimize!(model)
 Xsol = JuMP.value.(X)
 ```
 
+## Acknowledgements
+
+This material is based upon work supported by the U.S. Department of Energy, Office of Science, under contract number DE-AC02-06CH11357.

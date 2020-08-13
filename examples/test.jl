@@ -1,21 +1,9 @@
-push!(LOAD_PATH, "../src");
+using ActiveSetMethods, GLPK
 using JuMP
-using ActiveSetMethods, Gurobi
 
-solver = ActiveSetMethods.Optimizer
-
-#model = Model(optimizer_with_attributes(solver, "lp_solver" => Gurobi.Optimizer()));
-model = Model(solver);
-set_optimizer_attribute(model, "LP_solver", Gurobi.Optimizer)
-#set_optimizer_attribute(model, "eta", 0.01)
-#set_optimizer_attribute(model, "method", "Ipopt")
-
-#optimizer_with_attributes(lp_solver=Gurobi.Optimizer())
-#set_optimizer_attribute(model, "lp_solver", Gurobi.Optimizer)
-
-#model.lp_solver = Ipopt.Optimizer()
-#lp = Model(Ipopt.Optimizer)
-#MOI.set(model, lp)
+#model = Model(optimizer_with_attributes(solver, "lp_solver" => GLPK.Optimizer()));
+model = Model(ActiveSetMethods.Optimizer);
+set_optimizer_attribute(model, "LP_solver", GLPK.Optimizer)
 
 @variable(model, X);
 @variable(model, Y);
