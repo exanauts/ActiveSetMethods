@@ -35,7 +35,7 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 		end
 	end
 
-
+	constr = MOI.ConstraintIndex[]
 	for i=1:m
 		Ai = A[i,:];
 		terms = Array{MOI.ScalarAffineTerm{Float64},1}();
@@ -52,20 +52,22 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 		push!(terms, MOI.ScalarAffineTerm{Float64}(1.0, u[i]));
 		push!(terms, MOI.ScalarAffineTerm{Float64}(-1.0, v[i]));
 		if constraint_lb[i] == constraint_ub[i]
-			MOI.Utilities.normalize_and_add_constraint(model,
+			constr1 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.EqualTo(constraint_lb[i]));
 		elseif constraint_lb[i] != -Inf && constraint_ub[i] != Inf && constraint_lb[i] < constraint_ub[i]
-			MOI.Utilities.normalize_and_add_constraint(model,
+			constr2 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.GreaterThan(constraint_lb[i]));
-			MOI.Utilities.normalize_and_add_constraint(model,
+			constr1 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.LessThan(constraint_ub[i]));
+			push!(constr, constr2);
 		elseif constraint_lb[i] != -Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
+			constr1 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.GreaterThan(constraint_lb[i]));
 		elseif constraint_ub[i] != Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
+			constr1 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.LessThan(constraint_ub[i]));
 		end
+		push!(constr, constr1);
 		MOI.Utilities.normalize_and_add_constraint(model,
 		MOI.ScalarAffineFunction([u_term], 0.0), MOI.GreaterThan(0.0));
 		MOI.Utilities.normalize_and_add_constraint(model,
@@ -75,8 +77,10 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	MOI.optimize!(model);
 	status = MOI.get(model, MOI.TerminationStatus());
-	print(model);
-	println("Status: ", status);
+	if Options_["mode"] == "Debug"
+		print(model);
+		println("Status: ", status);
+	end
 
 	# statusPrimal = MOI.get(model, MOI.PrimalStatus());
 	# println("StatusPrimal: ", statusPrimal);
@@ -97,19 +101,28 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	Xsol = zeros(n);
 	norm_E = 0.0
+	lambda = []
 
 
 	if status == MOI.OPTIMAL
 		Xsol = MOI.get(model, MOI.VariablePrimal(), x);
-		println("Xsol: ", Xsol);
 		Usol = MOI.get(model, MOI.VariablePrimal(), u);
-		println("Usol: ", Usol);
 		Vsol = MOI.get(model, MOI.VariablePrimal(), v);
-		println("Vsol: ", Vsol);
-		# # Xdual = MOI.get(model, MOI.DualObjectiveValue(), con1);
-		# # println(Xdual);
-		# norm_E = sum(Usol+Vsol)
+		lambda = MOI.get(model, MOI.ConstraintDual(1), constr);
+		if Options_["mode"] == "Debug"
+			println("Xsol: ", Xsol);
+			println("Usol: ", Usol);
+			println("Vsol: ", Vsol);
+			println("Dual Constraints constr: ", MOI.get(model, MOI.ConstraintDual(1), constr))
+		end
 	end
 
-	return(Xsol,status)
+	# if MOI.get(model, MOI.DualStatus()) == FEASIBLE_POINT
+	# 	println("Dual Constraints constr: ", MOI.get(model, MOI.ConstraintDual(1), constr))
+	# end
+
+
+	# println("Dual Status: ", MOI.get(model, MOI.DualStatus()))
+
+	return(Xsol,lambda,status)
 end
