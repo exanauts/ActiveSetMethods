@@ -191,7 +191,7 @@ function SLP_line_search(model::NloptProblem)
 
         (err_denom,_) = findmax(denom_temp)
 
-        err = norm(df - num_temp) / max(norm(dE), err_denom, 1);
+        err = norm(df - num_temp) / max(norm(df), err_denom, 1.0);
 
         #TODO Temporary
         if Options_["mode"] == "Debug"
