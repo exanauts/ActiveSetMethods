@@ -84,6 +84,7 @@ function SLP_line_search(model::NloptProblem)
         end
 
         (p,p_lam,p_status) = solve_lp(c_init,A,E,model.x_L,model.x_U,constraint_lb,constraint_ub,mu,x)
+        @assert length(p_lam) == length(lam)
         #println("num_constraints: ", num_constraints);
         #println("length p_lam: ", length(p_lam));
         lam_ .= p_lam - lam;
