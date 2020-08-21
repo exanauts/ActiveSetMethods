@@ -1,3 +1,28 @@
+"""
+solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
+This function solved the LP subproblem of the SLP line search algorithm on
+	nonlinear optimization problem defined in model.
+c_init has all weights of the objective function. The last elment of it has the
+	constant value of the objective function
+A is a constraint matrix of the LP subproblem. It is a sparse matrix
+b is a vector containing the constant values of the constraint matrix A.
+	b is a dense vector.
+x_L is a vector containing the lower bound of the original variables of the
+	nonlinear optimization problem
+x_U is a vector containing the upper bound of the original variables of the
+	nonlinear optimization problem
+constraint_lb is a vector containing the lower bound of the original constraints
+ 	of the nonlinear optimization problem
+constraint_ub is a vector containing the upper bound of the original constraints
+ 	of the nonlinear optimization problem
+mu is a scalar number which defines the peanlty for constraint violations
+x_hat is the estinmated values of the original variables of the nonlinear
+	optimization problem
+
+The function returns the slution of the LP subproblem variables, status of the
+	LP subproblem solution, and duals of the constraints of the LP subproblem
+"""
+
 function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	model = Options_["LP_solver"]()
