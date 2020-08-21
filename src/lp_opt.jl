@@ -4,24 +4,29 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 	n = A.n;
 	m = A.m;
 	@assert n > 0
-	@assert m > 0
+	@assert m >= 0
 
 	c = c_init[1:n];
 
 	c0 = c_init[n+1];
 
 	x = MOI.add_variables(model, n)
-	u = MOI.add_variables(model, m)
-	v = MOI.add_variables(model, m)
 	terms = Array{MOI.ScalarAffineTerm{Float64},1}();
 	for (ind, val) in zip(c.nzind, c.nzval)
 		push!(terms, MOI.ScalarAffineTerm{Float64}(val, MOI.VariableIndex(ind)));
 	end
-	append!(terms, MOI.ScalarAffineTerm.(mu, u));
-	append!(terms, MOI.ScalarAffineTerm.(mu, v));
+
+	# Slacks are added only for constrained problems.
+	if m > 0
+		u = MOI.add_variables(model, m)
+		v = MOI.add_variables(model, m)
+		append!(terms, MOI.ScalarAffineTerm.(mu, u));
+		append!(terms, MOI.ScalarAffineTerm.(mu, v));
+	end
+
 	MOI.set(model,
-	MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
-	MOI.ScalarAffineFunction(terms, c0))
+		MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}(),
+		MOI.ScalarAffineFunction(terms, c0))
 	MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 	@assert length(x_L) == n
@@ -112,13 +117,17 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	if status == MOI.OPTIMAL
 		Xsol = MOI.get(model, MOI.VariablePrimal(), x);
-		Usol = MOI.get(model, MOI.VariablePrimal(), u);
-		Vsol = MOI.get(model, MOI.VariablePrimal(), v);
+		if m > 0
+			Usol = MOI.get(model, MOI.VariablePrimal(), u);
+			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
+		end
 		lambda = MOI.get(model, MOI.ConstraintDual(1), constr);
 		if Options_["mode"] == "Debug"
 			println("Xsol: ", Xsol);
-			println("Usol: ", Usol);
-			println("Vsol: ", Vsol);
+			if m > 0
+				println("Usol: ", Usol);
+				println("Vsol: ", Vsol);
+			end
 			println("Dual Constraints constr: ", MOI.get(model, MOI.ConstraintDual(1), constr))
 		end
 	elseif status == MOI.DUAL_INFEASIBLE
