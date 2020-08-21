@@ -84,6 +84,7 @@ function SLP_line_search(model::NloptProblem)
         end
 
         (p,p_lam,p_status) = solve_lp(c_init,A,E,model.x_L,model.x_U,constraint_lb,constraint_ub,mu,x)
+        @show length(p_lam), length(lam)
         @assert length(p_lam) == length(lam)
         #println("num_constraints: ", num_constraints);
         #println("length p_lam: ", length(p_lam));
@@ -119,9 +120,18 @@ function SLP_line_search(model::NloptProblem)
             phi_x = model.eval_merit(x, norm_E, mu);
             phi_x_p = model.eval_merit(x+alpha * p, norm_E_a, mu);
             D1_x = model.eval_D(x, df, norm_E, mu, p);
+            if alpha <= Options_["alpha_lb"]
+                @warn "Step size too small"
+                break
+            end
             # if (temp_ind>Options_["max_iter_inner"])
             #     break
             # end
+        end
+
+        if alpha <= Options_["alpha_lb"]
+            ret = -3
+            break;
         end
 
         p_new = alpha .* p
