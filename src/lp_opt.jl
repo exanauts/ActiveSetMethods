@@ -3,6 +3,8 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 	model = Options_["LP_solver"]()
 	n = A.n;
 	m = A.m;
+	@assert n > 0
+	@assert m > 0
 
 	c = c_init[1:n];
 
@@ -22,19 +24,23 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 	MOI.ScalarAffineFunction(terms, c0))
 	MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
+	@assert length(x_L) == n
+	@assert length(x_U) == n
 	for i=1:n
 		term = MOI.ScalarAffineTerm{Float64}(1.0, x[i]);
 
-		if constraint_lb[i] != -Inf
+		if x_L[i] != -Inf
 			MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction([term], x_hat[i]), MOI.GreaterThan(x_L[i]));
 		end
-		if constraint_ub[i] != Inf
+		if x_U[i] != Inf
 			MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction([term], x_hat[i]), MOI.LessThan(x_U[i]));
 		end
 	end
 
+	@assert length(constraint_lb) == m
+	@assert length(constraint_ub) == m
 	constr = MOI.ConstraintIndex[]
 	for i=1:m
 		Ai = A[i,:];
@@ -115,6 +121,10 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 			println("Vsol: ", Vsol);
 			println("Dual Constraints constr: ", MOI.get(model, MOI.ConstraintDual(1), constr))
 		end
+	elseif status == MOI.DUAL_INFEASIBLE
+		@error "Trust region must be employed."
+	else
+		@error "Unexpected status: $(status)"
 	end
 
 	# if MOI.get(model, MOI.DualStatus()) == FEASIBLE_POINT
