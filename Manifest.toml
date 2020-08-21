@@ -35,9 +35,9 @@ version = "0.5.1"
 
 [[CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
-git-tree-sha1 = "cab4da992adc0a64f63fa30d2db2fd8bec40cab4"
+git-tree-sha1 = "ccc043a0df446cac279dca29d13e2827b40aceb5"
 uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
-version = "0.5.11"
+version = "0.5.12"
 
 [[CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -111,9 +111,9 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[FiniteDiff]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "SparseArrays", "StaticArrays"]
-git-tree-sha1 = "ed5d92cc9a84b9f5f9d65d3559b22d4b3b824b7e"
+git-tree-sha1 = "c98c1b5c2b5eeb6d867ec77b936132b8e7c978c0"
 uuid = "6a86dc24-6348-571c-b903-95158fe2bd41"
-version = "2.5.2"
+version = "2.6.0"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "NaNMath", "Random", "SpecialFunctions", "StaticArrays"]
@@ -181,9 +181,9 @@ version = "0.21.3"
 
 [[JuliaInterpreter]]
 deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
-git-tree-sha1 = "79e4496b79e8af45198f8c291f26d4514d6b06d6"
+git-tree-sha1 = "e4057be815219e5a5878c5c95a25de9d488d376a"
 uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
-version = "0.7.24"
+version = "0.7.25"
 
 [[LibGit2]]
 deps = ["Printf"]
@@ -213,9 +213,9 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[LoweredCodeUtils]]
 deps = ["JuliaInterpreter"]
-git-tree-sha1 = "5bca4f43cb522596be4496d849de670090af3a55"
+git-tree-sha1 = "41b448dcb53258645cd5e4f9447409e1928ad4eb"
 uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
-version = "0.4.7"
+version = "0.4.8"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
