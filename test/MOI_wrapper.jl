@@ -5,6 +5,8 @@ const MOIU = MOI.Utilities
 const MOIB = MOI.Bridges
 
 const optimizer = ActiveSetMethods.Optimizer()
+MOI.set(optimizer, MOI.RawParameter("max_iter"), 10)
+
 const config = MOIT.TestConfig(atol=1e-4, rtol=1e-4,
                                optimal_status=MOI.LOCALLY_SOLVED)
 # DualObjectiveValue is not implemented, so ActiveSetMethods does not pass the tests that
@@ -77,27 +79,27 @@ end
 
 # MOI.empty!(optimizer)
 
-@testset "MOI QP/QCQP tests" begin
-    qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
-    MOIT.qptest(qp_optimizer, config)
-    exclude = ["qcp1", # VectorAffineFunction not supported.
-              ]
-    MOIT.qcptest(qp_optimizer, config_no_duals, exclude)
-end
+# @testset "MOI QP/QCQP tests" begin
+#     qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
+#     MOIT.qptest(qp_optimizer, config)
+#     exclude = ["qcp1", # VectorAffineFunction not supported.
+#               ]
+#     MOIT.qcptest(qp_optimizer, config_no_duals, exclude)
+# end
 
-MOI.empty!(optimizer)
+# MOI.empty!(optimizer)
 
 # @testset "MOI NLP tests" begin
 #     MOIT.nlptest(optimizer, config)
 # end
 
-@testset "Testing getters" begin
-    MOI.Test.copytest(MOI.instantiate(ActiveSetMethods.Optimizer, with_bridge_type=Float64), MOIU.Model{Float64}())
-end
+# @testset "Testing getters" begin
+#     MOI.Test.copytest(MOI.instantiate(ActiveSetMethods.Optimizer, with_bridge_type=Float64), MOIU.Model{Float64}())
+# end
 
-@testset "Bounds set twice" begin
-    MOI.Test.set_lower_bound_twice(optimizer, Float64)
-    MOI.Test.set_upper_bound_twice(optimizer, Float64)
-end
+# @testset "Bounds set twice" begin
+#     MOI.Test.set_lower_bound_twice(optimizer, Float64)
+#     MOI.Test.set_upper_bound_twice(optimizer, Float64)
+# end
 
 # TODO run basic tests for `SingleVariable` constraints: https://github.com/jump-dev/MathOptInterface.jl/pull/1133
