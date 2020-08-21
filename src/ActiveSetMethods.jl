@@ -67,7 +67,7 @@ end
 
 
 include("MOI_wrapper.jl")
-include("analysis.jl")
+# include("analysis.jl")
 #include("MPB_wrapper.jl")
 
 end
