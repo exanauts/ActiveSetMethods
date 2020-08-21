@@ -3,7 +3,7 @@ solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 This function solved the LP subproblem of the SLP line search algorithm on
 	nonlinear optimization problem defined in model.
 c_init has all weights of the objective function. The last elment of it has the
-	constant value of the objective function
+	constant value of the objective function. c_init is a sparse vector
 A is a constraint matrix of the LP subproblem. It is a sparse matrix
 b is a vector containing the constant values of the constraint matrix A.
 	b is a dense vector.
@@ -20,7 +20,9 @@ x_hat is the estinmated values of the original variables of the nonlinear
 	optimization problem
 
 The function returns the slution of the LP subproblem variables, status of the
-	LP subproblem solution, and duals of the constraints of the LP subproblem
+	LP subproblem solution, and duals of the constraints of the LP subproblem. 
+	If the problem is dual_infeasible, the duals of the constraints will be an
+	empty array.
 """
 
 function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
@@ -34,14 +36,19 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 	c = c_init[1:n];
 
 	c0 = c_init[n+1];
-
+	
+	#TODO all varialbes are defined as x ... change it to p so it is consistant with 
+	# the algorithm
+	# Variables are defined as a vector named x
 	x = MOI.add_variables(model, n)
+	
+	# terms is defined for the objective function
 	terms = Array{MOI.ScalarAffineTerm{Float64},1}();
 	for (ind, val) in zip(c.nzind, c.nzval)
 		push!(terms, MOI.ScalarAffineTerm{Float64}(val, MOI.VariableIndex(ind)));
 	end
 
-	# Slacks are added only for constrained problems.
+	# Slacks v and u are added only for constrained problems.
 	if m > 0
 		u = MOI.add_variables(model, m)
 		v = MOI.add_variables(model, m)
@@ -56,6 +63,8 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	@assert length(x_L) == n
 	@assert length(x_U) == n
+	
+	# The original bounds of the x are imposed on p + x_hat
 	for i=1:n
 		term = MOI.ScalarAffineTerm{Float64}(1.0, x[i]);
 
@@ -71,6 +80,8 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	@assert length(constraint_lb) == m
 	@assert length(constraint_ub) == m
+	
+	# constr is used to retrieve the dual variable of the constraints after solution
 	constr = MOI.ConstraintIndex[]
 	for i=1:m
 		Ai = A[i,:];
@@ -87,7 +98,7 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 		v_term = MOI.ScalarAffineTerm{Float64}(1.0, v[i]);;
 		push!(terms, MOI.ScalarAffineTerm{Float64}(1.0, u[i]));
 		push!(terms, MOI.ScalarAffineTerm{Float64}(-1.0, v[i]));
-		if constraint_lb[i] == constraint_ub[i]
+		if constraint_lb[i] == constraint_ub[i] #This means the constraint is equality
 			constr1 = MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction(terms, b[i]), MOI.EqualTo(constraint_lb[i]));
 		elseif constraint_lb[i] != -Inf && constraint_ub[i] != Inf && constraint_lb[i] < constraint_ub[i]
@@ -136,7 +147,6 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 
 	Xsol = zeros(n);
-	norm_E = 0.0
 	lambda = []
 
 
@@ -160,13 +170,6 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 	else
 		@error "Unexpected status: $(status)"
 	end
-
-	# if MOI.get(model, MOI.DualStatus()) == FEASIBLE_POINT
-	# 	println("Dual Constraints constr: ", MOI.get(model, MOI.ConstraintDual(1), constr))
-	# end
-
-
-	# println("Dual Status: ", MOI.get(model, MOI.DualStatus()))
 
 	return(Xsol,lambda,status)
 end
