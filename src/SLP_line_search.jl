@@ -13,7 +13,9 @@ julia> SLP_line_search(model)
 ```
 """
 function SLP_line_search(model::NloptProblem)
-    ret = -5
+
+    ret = -5 # Optimize_not_called
+
     num_variables = model.n;
     num_constraints = model.m;
     constraint_lb = model.g_L
@@ -38,11 +40,11 @@ function SLP_line_search(model::NloptProblem)
     eta = Options_["eta"];
     tau = Options_["tau"];
     rho = Options_["rho"];
-
     mu = Options_["mu"];
     mu_max = Options_["mu_max"];
 
-
+    # This sets x0, initial point.
+    # TODO: This must be set by MOI.
     for i=1:num_variables
         if model.x_L[i] != -Inf && model.x_U[i] != Inf
             # x[i] = rand(model.x_L[i]:model.x_U[i])
@@ -71,6 +73,8 @@ function SLP_line_search(model::NloptProblem)
         df = model.eval_grad_f(x, zeros(num_variables));
         E = model.eval_g(x, zeros(num_constraints));
         dE = model.eval_jac_g(x, :opt, [], [], zeros(length(jacobian_sparsity)));
+
+        # Compute penalty parameter μ
         mu_nu = df' * p / (1 - rho);
         norm_E = model.eval_norm_E(x,zeros(num_constraints),constraint_lb,constraint_ub);
         mu_temp = (norm_E > 0) ? df' * p / (1 - rho) / norm_E : 1;
