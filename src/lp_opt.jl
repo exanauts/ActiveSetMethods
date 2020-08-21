@@ -21,8 +21,8 @@ x_hat is the estinmated values of the original variables of the nonlinear
 
 The function returns the slution of the LP subproblem variables, status of the
 	LP subproblem solution, and duals of the constraints of the LP subproblem. 
-	If the problem is dual_infeasible, the duals of the constraints will be an
-	empty array.
+	If the problem is dual_infeasible or has not constraints, the duals of the c
+	onstraints will be an empty array.
 """
 
 function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
