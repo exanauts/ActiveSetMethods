@@ -13,7 +13,7 @@ julia> SLP_line_search(model)
 ```
 """
 function SLP_line_search(model::NloptProblem)
-    ret = 5
+    ret = -5
     num_variables = model.n;
     num_constraints = model.m;
     constraint_lb = model.g_L
