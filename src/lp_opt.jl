@@ -25,7 +25,7 @@ The function returns the slution of the LP subproblem variables, status of the
 	onstraints will be an empty array.
 """
 
-function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
+function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat,Δ)
 
 	model = Options_["LP_solver"]()
 	n = A.n;
@@ -63,7 +63,13 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	@assert length(x_L) == n
 	@assert length(x_U) == n
-	
+
+	# Add a dummy trust-region to all variables
+	for i = 1:n
+		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(+Δ))
+		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(-Δ))
+	end
+	#=
 	# The original bounds of the x are imposed on p + x_hat
 	for i=1:n
 		term = MOI.ScalarAffineTerm{Float64}(1.0, x[i]);
@@ -77,6 +83,7 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 			MOI.ScalarAffineFunction([term], x_hat[i]), MOI.LessThan(x_U[i]));
 		end
 	end
+	=#
 
 	@assert length(constraint_lb) == m
 	@assert length(constraint_ub) == m

@@ -42,6 +42,7 @@ function SLP_line_search(model::NloptProblem)
     rho = Options_["rho"];
     mu = Options_["mu"];
     mu_max = Options_["mu_max"];
+	Δ = Options_["TR_size"]
 
     # This sets x0, initial point.
     # TODO: This must be set by MOI.
@@ -100,7 +101,7 @@ function SLP_line_search(model::NloptProblem)
             A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
         end
 
-        (p,p_lam,p_status) = solve_lp(c_init,A,E,model.x_L,model.x_U,constraint_lb,constraint_ub,mu,x)
+        (p,p_lam,p_status) = solve_lp(c_init,A,E,model.x_L,model.x_U,constraint_lb,constraint_ub,mu,x,Δ)
         @show length(p_lam), length(lam)
         @assert length(p_lam) == length(lam)
         #println("num_constraints: ", num_constraints);

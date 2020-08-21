@@ -11,5 +11,6 @@ Options_ = Dict(
 "tau"=>0.9,
 "rho"=>0.8,
 "mu"=>1000.0,
+"TR_size"=>10.0,
 "mu_max"=>1e10, #Defines the maximum value for mu
 "alpha_lb"=>1e-8); #Defines the lower bound of alpha
