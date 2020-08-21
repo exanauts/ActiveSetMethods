@@ -1,5 +1,17 @@
 using Printf
 
+"""
+SLP_line_search(model)
+This function applies SLP line search algorithm on nonlinear optimization
+    problem defined in model.
+if the return value is 1 it means it is converged, if 5, it means it was
+    interrupted such as reached max_iter
+# Examples
+```julia-repl
+julia> SLP_line_search(model)
+1
+```
+"""
 function SLP_line_search(model::NloptProblem)
     ret = 5
     num_variables = model.n;
@@ -79,6 +91,7 @@ function SLP_line_search(model::NloptProblem)
         c_init[1:num_variables] .= df;
         c_init[num_variables+1] = f;
         for Ai = 1:length(jacobian_sparsity)
+            #TODO This might cause problem in terms of lambda
             # A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = 1.0;
             A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
         end
@@ -189,10 +202,12 @@ function SLP_line_search(model::NloptProblem)
 
         num_temp = zeros(num_variables);
         denom_temp = zeros(num_constraints);
+        dE_vec = zeros(num_constraints);
 
         for Ai = 1:length(jacobian_sparsity)
             # r_temp[jacobian_sparsity[Ai][2]] += p_lam[jacobian_sparsity[Ai][1]] * dE[Ai];
             num_temp[jacobian_sparsity[Ai][2]] += lam[jacobian_sparsity[Ai][1]] * dE[Ai];
+            dE_vec[jacobian_sparsity[Ai][1]] += dE[Ai];
             denom_temp[jacobian_sparsity[Ai][1]] += (lam[jacobian_sparsity[Ai][1]] * dE[Ai]) ^ 2;
             # A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = 1.0;
             # A[jacobian_sparsity[Ai][1],jacobian_sparsity[Ai][2]] = dE[Ai];
@@ -222,6 +237,7 @@ function SLP_line_search(model::NloptProblem)
             append!(alphapx, p_new)
             append!(lamx, lam + lam_new)
             append!(errx, err)
+            append!(normdCx, norm(dE_vec))
         end
 
 

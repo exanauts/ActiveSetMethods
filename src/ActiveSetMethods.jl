@@ -17,7 +17,9 @@ export NloptProblem
 #TODO Delete these variables
 
 export fx, normEx, Phix, mux, alphax, mu_numerator, mu_RHS, Dx, px, alphapx
-export lamx, errx, normDfx, normLamx
+export lamx, errx, normDfx, normLamx, normdCx
+export plot_error_components
+
 fx = Array{Float64,1}()
 normEx = Array{Float64,1}()
 Phix = Array{Float64,1}()
@@ -32,8 +34,10 @@ lamx= Array{Float64,1}()
 errx = Array{Float64,1}()
 normDfx = Array{Float64,1}()
 normLamx = Array{Float64,1}()
+normdCx = Array{Float64,1}()
 
 
+"Creates the ActiveSetMethods Problem"
 function createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
     m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, j_sparsity::Array{Tuple{Int64,Int64}},
     h_sparsity::Array{Tuple{Int64,Int64}}, eval_f, eval_g, eval_grad_f, eval_jac_g,
@@ -44,7 +48,7 @@ function createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
                         eval_merit, eval_D, eval_h);
 end
 
-
+"Solves the ActiveSetMethods Problem"
 function solveNloptProblem(model::NloptProblem)
     ret = 5;
 
@@ -63,6 +67,7 @@ end
 
 
 include("MOI_wrapper.jl")
+include("analysis.jl")
 #include("MPB_wrapper.jl")
 
 end
