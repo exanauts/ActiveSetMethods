@@ -21,8 +21,4 @@ inner = backend(model).optimizer.model
 @test length(inner.quadratic_le_constraints) == 0
 @test length(inner.quadratic_ge_constraints) == 1
 @test length(inner.quadratic_eq_constraints) == 2
-# @test ActiveSetMethods.quadratic_le_offset(inner) == 0
-# @test ActiveSetMethods.quadratic_ge_offset(inner) == 1
-# @test ActiveSetMethods.quadratic_eq_offset(inner) == 2
-# @show ActiveSetMethods.nlp_constraint_offset(inner) - ActiveSetMethods.quadratic_le_offset(inner)
-@show length(inner.nlp_data.constraint_bounds)
+@show length(inner.nlp_data.constraint_bounds) == 0
