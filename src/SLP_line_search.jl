@@ -1,3 +1,5 @@
+using Printf
+
 function SLP_line_search(model::NloptProblem)
     ret = 5
     num_variables = model.n;
@@ -50,6 +52,7 @@ function SLP_line_search(model::NloptProblem)
     end
 
 
+    @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")
     for i=1:Options_["max_iter"]
 
         f = model.eval_f(x);
@@ -72,8 +75,6 @@ function SLP_line_search(model::NloptProblem)
             println("####---->solveProblem(dE): ", dE);
             println("####---->Before solveProblem(mu): ", mu);
         end
-
-
 
         c_init[1:num_variables] .= df;
         c_init[num_variables+1] = f;
@@ -109,16 +110,17 @@ function SLP_line_search(model::NloptProblem)
 
 
         temp_ind = 0
-        while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > Options_["alpha_lb"]))
+        # while((phi_x_p > phi_x + eta * alpha * D1_x) && (alpha > Options_["alpha_lb"]))
+        while phi_x_p > phi_x + eta * alpha * D1_x
             temp_ind+=1;
             alpha = alpha * tau;
             norm_E_a = model.eval_norm_E(x+alpha*p,zeros(num_constraints),constraint_lb,constraint_ub)
             phi_x = model.eval_merit(x, norm_E, mu);
             phi_x_p = model.eval_merit(x+alpha * p, norm_E_a, mu);
             D1_x = model.eval_D(x, df, norm_E, mu, p);
-            if (temp_ind>Options_["max_iter_inner"])
-                break
-            end
+            # if (temp_ind>Options_["max_iter_inner"])
+            #     break
+            # end
         end
 
         p_new = alpha .* p
@@ -221,7 +223,10 @@ function SLP_line_search(model::NloptProblem)
         #     break;
         # end
         # if (norm_E_a + sum(abs.(df' * p_new)) <= Options_["epsilon"])
-        println("err: ", err)
+        # println("err: ", err)
+
+        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", i, f, phi_x, norm_E, norm(df), err)
+
         if err <= Options_["epsilon"]
             ret = 0
             break;
