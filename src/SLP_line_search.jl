@@ -24,7 +24,7 @@ function SLP_line_search(model::NloptProblem)
 
 
     c_init = spzeros(num_variables+1);
-    A = spzeros(num_constraints,num_variables);
+    # A = spzeros(num_constraints,num_variables);
 
     x = zeros(num_variables)
 
@@ -69,6 +69,7 @@ function SLP_line_search(model::NloptProblem)
     @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")
     for i=1:Options_["max_iter"]
 
+        A = spzeros(num_constraints,num_variables);
         f = model.eval_f(x);
         df = model.eval_grad_f(x, zeros(num_variables));
         E = model.eval_g(x, zeros(num_constraints));
