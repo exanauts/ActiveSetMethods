@@ -863,7 +863,7 @@ function MOI.optimize!(model::Optimizer)
     function eval_grad_f_cb(x, grad_f)
         eval_objective_gradient(model, grad_f, x)
         rmul!(grad_f,objective_scale)
-        return eval_objective_gradient(model, grad_f, x)
+        return grad_f
     end
 
     # Constraint value callback
@@ -1230,7 +1230,9 @@ macro define_constraint_dual(function_type, set_type, prefix)
             end
             # TODO: Unable to find documentation in Ipopt about the signs of duals.
             # Rescaling by -1 here seems to pass the MOI tests.
-            return -1 * model.inner.mult_g[ci.value + $offset_function(model)]
+            # return -1 * model.inner.mult_g[ci.value + $offset_function(model)]
+            # TODO: Not sure if scaled by -1; disabled
+            return model.inner.mult_g[ci.value + $offset_function(model)]
         end
     end
 end
@@ -1258,7 +1260,8 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintDual,
         error("Variable $vi has no upper bound -- ConstraintDual not defined.")
     end
     # MOI convention is for feasible LessThan duals to be nonpositive.
-    return -1 * model.inner.mult_x_U[vi.value]
+    # return -1 * model.inner.mult_x_U[vi.value]
+    return model.inner.mult_x_U[vi.value]
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintDual,
@@ -1287,5 +1290,6 @@ end
 
 function MOI.get(model::Optimizer, attr::MOI.NLPBlockDual)
     MOI.check_result_index_bounds(model, attr)
-    return -1 * model.inner.mult_g[(1 + nlp_constraint_offset(model)):end]
+    # return -1 * model.inner.mult_g[(1 + nlp_constraint_offset(model)):end]
+    return model.inner.mult_g[(1 + nlp_constraint_offset(model)):end]
 end
