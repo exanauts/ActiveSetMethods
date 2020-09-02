@@ -446,13 +446,16 @@ function eval_functions!(env::SLP)
     env.dE .= env.problem.eval_jac_g(env.x, :opt, [], [], zeros(length(env.problem.j_str)))
 end
 
-function compute_normalized_Kuhn_Tucker_residuals(env::SLP)
+function compute_jacobian_matrix(env::SLP)
 	J = spzeros(env.problem.m, env.problem.n)
 	for i = 1:length(env.problem.j_str)
-		J[env.problem.j_str[i][1], env.problem.j_str[i][2]] = env.dE[i]
+		J[env.problem.j_str[i][1], env.problem.j_str[i][2]] += env.dE[i]
     end 
-    return compute_normalized_Kuhn_Tucker_residuals(env.df, env.lambda, J)
+    return J
 end
+
+compute_normalized_Kuhn_Tucker_residuals(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(
+    env.df, env.lambda, compute_jacobian_matrix(env))
 function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
     KT_res = norm(df - J' * lambda)
     scalar = max(1.0, norm(df))

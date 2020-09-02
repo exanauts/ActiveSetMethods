@@ -157,24 +157,14 @@ function solve_lp(
 	return Xsol, lambda, status
 end
 
-function solve_lp(env::SLP, Δ)
-
-	A = spzeros(env.problem.m, env.problem.n)
-	for Ai = 1:length(env.problem.j_str)
-		# TODO: This might cause problem in terms of lambda
-		# KK: WHY?
-		A[env.problem.j_str[Ai][1], env.problem.j_str[Ai][2]] = env.dE[Ai]
-	end 
-
-	return solve_lp(
-		sparse([env.df; env.f]),
-		A,
-		env.E,
-		env.problem.x_L,
-		env.problem.x_U,
-		env.problem.g_L,
-		env.problem.g_U,
-		env.mu,
-		env.x,
-		Δ)
-end
+solve_lp(env::SLP, Δ) = solve_lp(
+	sparse([env.df; env.f]),
+	compute_jacobian_matrix(env),
+	env.E,
+	env.problem.x_L,
+	env.problem.x_U,
+	env.problem.g_L,
+	env.problem.g_U,
+	env.mu,
+	env.x,
+	Δ)
