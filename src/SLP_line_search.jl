@@ -407,6 +407,8 @@ function line_search_method(env::SLP)
     env.problem.obj_val = env.problem.eval_f(env.x)
     env.problem.status = Int(env.ret)
     env.problem.x = env.x
+    env.problem.g = env.E
+    env.problem.mult_g = env.lambda
 end
 
 function norm_violations(
