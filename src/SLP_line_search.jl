@@ -379,6 +379,9 @@ function line_search_method(env::SLP)
         env.p, lambda, status = solve_lp(env, Δ)
         @assert length(env.lambda) == length(lambda)
 
+        # update dual multiplier
+        env.lambda += env.alpha .* (lambda - env.lambda)
+
         # directional derivative
         compute_derivative!(env)
         if env.directional_derivative > -1.e-6
@@ -399,9 +402,8 @@ function line_search_method(env::SLP)
         end
         itercnt += 1
 
-        # update primal/dual points
+        # update primal points
         env.x += env.alpha .* env.p
-        env.lambda += env.alpha .* (lambda - env.lambda)
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
