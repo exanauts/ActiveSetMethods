@@ -3,10 +3,10 @@ module ActiveSetMethods
 using LinearAlgebra, SparseArrays
 using GLPK # TODO: This needs to be removed.
 
-include("lp_opt.jl")
 include("Options.jl")
 include("struct.jl")
 include("SLP_line_search.jl")
+include("lp_opt.jl")
 
 
 export createNloptProblem, Options_
@@ -50,17 +50,15 @@ end
 
 "Solves the ActiveSetMethods Problem"
 function solveNloptProblem(model::NloptProblem)
-    ret = 5;
-
-    if (Options_["method"] == "SLP" && Options_["algorithm"] == "Line Search")
-        ret = SLP_line_search(model);
+    if Options_["method"] == "SLP"
+        env = SLP(model, Options_)
+        if Options_["algorithm"] == "Line Search"
+            line_search_method(env);
+        end
     else
-        println("ERROR: The method is not defined")
+        @error "The method is not defined"
     end
-
-    println("ret: ", ret)
-    model.status = Int(ret)
-    return Int(ret)
+    return model.status 
 end
 
 
