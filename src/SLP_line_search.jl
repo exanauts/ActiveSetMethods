@@ -101,7 +101,7 @@ function SLP_line_search(model::NloptProblem)
         end
 
         (p,p_lam,p_status) = solve_lp(c_init,A,E,model.x_L,model.x_U,constraint_lb,constraint_ub,mu,Δ)
-        @show length(p_lam), length(lam)
+        # @show length(p_lam), length(lam)
         @assert length(p_lam) == length(lam)
         #println("num_constraints: ", num_constraints);
         #println("length p_lam: ", length(p_lam));
@@ -381,11 +381,15 @@ function line_search_method(env::SLP)
         # solve LP subproblem
         env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
         @assert length(env.lambda) == length(lambda)
+        # @show env.p
 
         # update multipliers
         env.lambda += env.alpha .* (lambda - env.lambda)
         env.mult_x_U += env.alpha .* (mult_x_U - env.mult_x_U)
         env.mult_x_L += env.alpha .* (mult_x_L - env.mult_x_L)
+        # @show env.lambda
+        # @show env.mult_x_U
+        # @show env.mult_x_L
 
         # directional derivative
         compute_derivative!(env)
@@ -456,6 +460,7 @@ function eval_functions!(env::SLP)
     env.df .= env.problem.eval_grad_f(env.x, zeros(env.problem.n))
     env.E .= env.problem.eval_g(env.x, zeros(env.problem.m))
     env.dE .= env.problem.eval_jac_g(env.x, :opt, [], [], zeros(length(env.problem.j_str)))
+    # @show env.f, env.df, env.E, env.dE
 end
 
 function compute_jacobian_matrix(env::SLP)
