@@ -75,21 +75,21 @@ end
     MOIT.unittest(bridged, config, exclude)
 end
 
-# @testset "MOI Linear tests" begin
-#     exclude = ["linear8a", # Behavior in infeasible case doesn't match test.
-#                "linear12", # Same as above.
-#                "linear8b", # Behavior in unbounded case doesn't match test.
-#                "linear8c", # Same as above.
-#                "linear7",  # VectorAffineFunction not supported.
-#                "linear15", # VectorAffineFunction not supported.
-#                ]
-#     model_for_ActiveSetMethods = MOIU.UniversalFallback(MOIU.Model{Float64}())
-#     linear_optimizer = MOI.Bridges.Constraint.SplitInterval{Float64}(
-#                          MOIU.CachingOptimizer(model_for_ActiveSetMethods, optimizer))
-#     MOIT.contlineartest(linear_optimizer, config_no_duals, exclude)
-#     # Tests setting bounds of `SingleVariable` constraint
-#     MOIT.linear4test(optimizer, config_no_duals)
-# end
+@testset "MOI Linear tests" begin
+    exclude = ["linear8a", # Behavior in infeasible case doesn't match test.
+               "linear12", # Same as above.
+               "linear8b", # Behavior in unbounded case doesn't match test.
+               "linear8c", # Same as above.
+               "linear7",  # VectorAffineFunction not supported.
+               "linear15", # VectorAffineFunction not supported.
+               ]
+    model_for_ActiveSetMethods = MOIU.UniversalFallback(MOIU.Model{Float64}())
+    linear_optimizer = MOI.Bridges.Constraint.SplitInterval{Float64}(
+                         MOIU.CachingOptimizer(model_for_ActiveSetMethods, optimizer))
+    MOIT.contlineartest(linear_optimizer, config_no_duals, exclude)
+    # Tests setting bounds of `SingleVariable` constraint
+    MOIT.linear4test(optimizer, config_no_duals)
+end
 
 # MOI.empty!(optimizer)
 

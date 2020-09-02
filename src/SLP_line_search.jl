@@ -341,24 +341,18 @@ function line_search_method(env::SLP)
 
     Δ = env.options["TR_size"]
 
-    # This sets x0, initial point.
-    # TODO: This must be set by MOI.
+    # Set initial point from MOI
+    @assert length(env.x) == length(env.problem.x)
+    env.x .= env.problem.x
+    # Adjust the initial point to satisfy the column bounds
     for i = 1:env.problem.n
-        if env.problem.x_L[i] > -Inf && env.problem.x_U[i] < Inf
-            env.x[i] = 0.5 * (env.problem.x_L[i] + env.problem.x_U[i])
-        elseif env.problem.x_L[i] > -Inf
-            env.x[i] = env.problem.x_L[i]
-        elseif env.problem.x_U[i] < Inf
-            env.x[i] = env.problem.x_U[i]
-        else
-            env.x[i] = 0.0
+        if env.problem.x_L[i] > -Inf
+            env.x[i] = max(env.x[i], env.problem.x_L[i])
+        end
+        if env.problem.x_U[i] > -Inf
+            env.x[i] = min(env.x[i], env.problem.x_U[i])
         end
     end
-    # @show env.problem.x
-    # @show env.problem.g_L
-    # @show env.problem.g_U
-    # @show env.problem.x_L
-    # @show env.problem.x_U
 
     itercnt = 1
 
@@ -369,11 +363,14 @@ function line_search_method(env::SLP)
 
         compute_mu!(env)
         compute_phi!(env)
+        @assert !isnan(env.phi)
 
         err = compute_normalized_Kuhn_Tucker_residuals(env)
         @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", itercnt, env.f, env.phi, env.norm_E, norm(env.df), err)
 
-        if err <= env.options["epsilon"]
+        # TODO: better have two different tolerance values
+        if err <= env.options["epsilon"] && env.norm_E <= env.options["epsilon"]
+            @printf("Terminated: KT residuals (%e)\n", err)
             env.ret = 0;
             break
         end
@@ -394,7 +391,7 @@ function line_search_method(env::SLP)
         # directional derivative
         compute_derivative!(env)
         if env.directional_derivative > -1.e-6
-            println("Terminated due to the directional derivative.")
+            @printf("Terminated: directional derivative (%e)\n", env.directional_derivative)
             env.ret = 0
             break
         end
