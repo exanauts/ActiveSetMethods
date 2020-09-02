@@ -74,12 +74,16 @@ function solve_lp(
 	@assert length(x_U) == n
 
 	# Add a dummy trust-region to all variables
+	constr_x_U = MOI.ConstraintIndex[]
+	constr_x_L = MOI.ConstraintIndex[]
 	for i = 1:n
 		ub = min(Δ, x_U[i] - x_k[i])
 		lb = max(-Δ, x_L[i] - x_k[i])
-		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub))
-		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb))
+		push!(constr_x_U, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub)))
+		push!(constr_x_L, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb)))
 	end
+	@assert length(constr_x_U) == n
+	@assert length(constr_x_L) == n
 	@assert length(constraint_lb) == m
 	@assert length(constraint_ub) == m
 	
@@ -132,6 +136,8 @@ function solve_lp(
 
 	Xsol = zeros(n);
 	lambda = zeros(m)
+	mult_x_U = zeros(n)
+	mult_x_L = zeros(n)
 
 	if status == MOI.OPTIMAL
 		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
@@ -150,6 +156,11 @@ function solve_lp(
 				ci += 1
 			end
 		end
+
+		# extract the multipliers to column bounds
+		# TODO: careful because of the trust region
+		mult_x_U = MOI.get(model, MOI.ConstraintDual(1), constr_x_U)
+		mult_x_L = MOI.get(model, MOI.ConstraintDual(1), constr_x_L)
 
 		if Options_["mode"] == "Debug"
 			println("Xsol: ", Xsol);
