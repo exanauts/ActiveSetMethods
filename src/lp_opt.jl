@@ -158,9 +158,17 @@ function solve_lp(
 		end
 
 		# extract the multipliers to column bounds
-		# TODO: careful because of the trust region
 		mult_x_U = MOI.get(model, MOI.ConstraintDual(1), constr_x_U)
 		mult_x_L = MOI.get(model, MOI.ConstraintDual(1), constr_x_L)
+		# TODO: careful because of the trust region
+		for j=1:n
+			if Xsol[j] == Δ
+				multi_x_U[j] = 0.0
+			end
+			if Xsol[j] == -Δ
+				multi_x_L[j] = 0.0
+			end
+		end
 
 		if Options_["mode"] == "Debug"
 			println("Xsol: ", Xsol);
@@ -176,7 +184,7 @@ function solve_lp(
 		@error "Unexpected status: $(status)"
 	end
 
-	return Xsol, lambda, status
+	return Xsol, lambda, mult_x_U, mult_x_L, status
 end
 
 solve_lp(env::SLP, Δ) = solve_lp(

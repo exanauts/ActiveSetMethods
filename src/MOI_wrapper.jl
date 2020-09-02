@@ -1260,7 +1260,8 @@ function MOI.get(model::Optimizer, attr::MOI.ConstraintDual,
         error("Variable $vi has no upper bound -- ConstraintDual not defined.")
     end
     # MOI convention is for feasible LessThan duals to be nonpositive.
-    return -1 * model.inner.mult_x_U[vi.value]
+    # return -1 * model.inner.mult_x_U[vi.value]
+    return model.inner.mult_x_U[vi.value]
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ConstraintDual,
@@ -1289,5 +1290,6 @@ end
 
 function MOI.get(model::Optimizer, attr::MOI.NLPBlockDual)
     MOI.check_result_index_bounds(model, attr)
-    return -1 * model.inner.mult_g[(1 + nlp_constraint_offset(model)):end]
+    # return -1 * model.inner.mult_g[(1 + nlp_constraint_offset(model)):end]
+    return model.inner.mult_g[(1 + nlp_constraint_offset(model)):end]
 end
