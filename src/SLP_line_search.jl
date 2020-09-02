@@ -374,8 +374,9 @@ function line_search_method(env::SLP)
         err = compute_normalized_Kuhn_Tucker_residuals(env)
         @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", itercnt, env.f, env.phi, env.norm_E, norm(env.df), err)
 
-        if err <= env.options["epsilon"]
-            @printf("Terminated: KT residuals (%e)", err)
+        # TODO: better have two different tolerance values
+        if err <= env.options["epsilon"] && env.norm_E <= env.options["epsilon"]
+            @printf("Terminated: KT residuals (%e)\n", err)
             env.ret = 0;
             break
         end
