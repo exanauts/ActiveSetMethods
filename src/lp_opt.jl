@@ -163,10 +163,10 @@ function solve_lp(
 		# TODO: careful because of the trust region
 		for j=1:n
 			if Xsol[j] == Δ
-				multi_x_U[j] = 0.0
+				mult_x_U[j] = 0.0
 			end
 			if Xsol[j] == -Δ
-				multi_x_L[j] = 0.0
+				mult_x_L[j] = 0.0
 			end
 		end
 

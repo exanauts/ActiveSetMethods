@@ -24,6 +24,20 @@ end
     @test !MOIU.supports_default_copy_to(optimizer, true)
 end
 
+# @testset "My MOI Debugging" begin
+#     model = MOIB.full_bridge_optimizer(ActiveSetMethods.Optimizer(), Float64)
+#     x = MOI.add_variable(model)
+#     objective_function = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+#     MOI.set(model,
+#             MOI.ObjectiveFunction{typeof(objective_function)}(),
+#             objective_function)
+#     MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
+
+#     f = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], [x, x]), 0.0)
+#     c = MOI.add_constraint(model, f, MOI.LessThan(1.0))
+#     MOI.optimize!(model)
+# end
+
 @testset "Unit" begin
     bridged = MOIB.full_bridge_optimizer(
         ActiveSetMethods.Optimizer(print_level=0, fixed_variable_treatment="make_constraint"),
