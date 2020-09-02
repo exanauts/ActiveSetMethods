@@ -38,42 +38,42 @@ end
 #     MOI.optimize!(model)
 # end
 
-# @testset "Unit" begin
-#     bridged = MOIB.full_bridge_optimizer(
-#         ActiveSetMethods.Optimizer(print_level=0, fixed_variable_treatment="make_constraint"),
-#         Float64)
-#     # A number of test cases are excluded because loadfromstring! works only
-#     # if the solver supports variable and constraint names.
-#     exclude = ["delete_variable", # Deleting not supported.
-#                "delete_variables", # Deleting not supported.
-#                "getvariable", # Variable names not supported.
-#                "solve_zero_one_with_bounds_1", # Variable names not supported.
-#                "solve_zero_one_with_bounds_2", # Variable names not supported.
-#                "solve_zero_one_with_bounds_3", # Variable names not supported.
-#                "getconstraint", # Constraint names not suported.
-#                "variablenames", # Variable names not supported.
-#                "solve_with_upperbound", # loadfromstring!
-#                "solve_with_lowerbound", # loadfromstring!
-#                "solve_integer_edge_cases", # loadfromstring!
-#                "solve_affine_lessthan", # loadfromstring!
-#                "solve_affine_greaterthan", # loadfromstring!
-#                "solve_affine_equalto", # loadfromstring!
-#                "solve_affine_interval", # loadfromstring!
-#                "get_objective_function", # Function getters not supported.
-#                "solve_constant_obj",  # loadfromstring!
-#                "solve_blank_obj", # loadfromstring!
-#                "solve_singlevariable_obj", # loadfromstring!
-#                "solve_objbound_edge_cases", # ObjectiveBound not supported.
-#                "solve_affine_deletion_edge_cases", # Deleting not supported.
-#                "solve_unbounded_model", # `NORM_LIMIT`
-#                "number_threads", # NumberOfThreads not supported
-#                "delete_nonnegative_variables", # get ConstraintFunction n/a.
-#                "update_dimension_nonnegative_variables", # get ConstraintFunction n/a.
-#                "delete_soc_variables", # VectorOfVar. in SOC not supported
-#                "solve_result_index", # DualObjectiveValue not supported
-#                ]
-#     MOIT.unittest(bridged, config, exclude)
-# end
+@testset "Unit" begin
+    bridged = MOIB.full_bridge_optimizer(
+        ActiveSetMethods.Optimizer(print_level=0, fixed_variable_treatment="make_constraint"),
+        Float64)
+    # A number of test cases are excluded because loadfromstring! works only
+    # if the solver supports variable and constraint names.
+    exclude = ["delete_variable", # Deleting not supported.
+               "delete_variables", # Deleting not supported.
+               "getvariable", # Variable names not supported.
+               "solve_zero_one_with_bounds_1", # Variable names not supported.
+               "solve_zero_one_with_bounds_2", # Variable names not supported.
+               "solve_zero_one_with_bounds_3", # Variable names not supported.
+               "getconstraint", # Constraint names not suported.
+               "variablenames", # Variable names not supported.
+               "solve_with_upperbound", # loadfromstring!
+               "solve_with_lowerbound", # loadfromstring!
+               "solve_integer_edge_cases", # loadfromstring!
+               "solve_affine_lessthan", # loadfromstring!
+               "solve_affine_greaterthan", # loadfromstring!
+               "solve_affine_equalto", # loadfromstring!
+               "solve_affine_interval", # loadfromstring!
+               "get_objective_function", # Function getters not supported.
+               "solve_constant_obj",  # loadfromstring!
+               "solve_blank_obj", # loadfromstring!
+               "solve_singlevariable_obj", # loadfromstring!
+               "solve_objbound_edge_cases", # ObjectiveBound not supported.
+               "solve_affine_deletion_edge_cases", # Deleting not supported.
+               "solve_unbounded_model", # `NORM_LIMIT`
+               "number_threads", # NumberOfThreads not supported
+               "delete_nonnegative_variables", # get ConstraintFunction n/a.
+               "update_dimension_nonnegative_variables", # get ConstraintFunction n/a.
+               "delete_soc_variables", # VectorOfVar. in SOC not supported
+               "solve_result_index", # DualObjectiveValue not supported
+               ]
+    MOIT.unittest(bridged, config, exclude)
+end
 
 @testset "MOI Linear tests" begin
     exclude = ["linear8a", # Behavior in infeasible case doesn't match test.
