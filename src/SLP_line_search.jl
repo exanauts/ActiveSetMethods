@@ -391,7 +391,7 @@ function line_search_method(env::SLP)
 
         # directional derivative
         compute_derivative!(env)
-        if env.directional_derivative > -1.e-6
+        if env.directional_derivative > -1.e-10
             @printf("Terminated: directional derivative (%e)\n", env.directional_derivative)
             env.ret = 0
             break
