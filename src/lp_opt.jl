@@ -33,6 +33,7 @@ function solve_lp(
 	constraint_lb::Vector{Float64},
 	constraint_ub::Vector{Float64},
 	mu::Float64,
+	x_k::Vector{Float64},
 	Δ::Float64)
 
 	model = Options_["LP_solver"]()
@@ -74,8 +75,10 @@ function solve_lp(
 
 	# Add a dummy trust-region to all variables
 	for i = 1:n
-		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(+Δ))
-		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(-Δ))
+		ub = min(Δ, x_U[i] - x_k[i])
+		lb = max(-Δ, x_L[i] - x_k[i])
+		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub))
+		MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb))
 	end
 	@assert length(constraint_lb) == m
 	@assert length(constraint_ub) == m
@@ -172,5 +175,6 @@ function solve_lp(env::SLP, Δ)
 		env.problem.g_L,
 		env.problem.g_U,
 		env.mu,
+		env.x,
 		Δ)
 end
