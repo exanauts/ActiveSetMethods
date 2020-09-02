@@ -369,11 +369,13 @@ function line_search_method(env::SLP)
 
         compute_mu!(env)
         compute_phi!(env)
+        @assert !isnan(env.phi)
 
         err = compute_normalized_Kuhn_Tucker_residuals(env)
         @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", itercnt, env.f, env.phi, env.norm_E, norm(env.df), err)
 
         if err <= env.options["epsilon"]
+            @printf("Terminated: KT residuals (%e)", err)
             env.ret = 0;
             break
         end
@@ -394,7 +396,7 @@ function line_search_method(env::SLP)
         # directional derivative
         compute_derivative!(env)
         if env.directional_derivative > -1.e-6
-            println("Terminated due to the directional derivative.")
+            @printf("Terminated: directional derivative (%e)\n", env.directional_derivative)
             env.ret = 0
             break
         end
