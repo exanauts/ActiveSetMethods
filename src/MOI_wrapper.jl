@@ -1230,7 +1230,9 @@ macro define_constraint_dual(function_type, set_type, prefix)
             end
             # TODO: Unable to find documentation in Ipopt about the signs of duals.
             # Rescaling by -1 here seems to pass the MOI tests.
-            return -1 * model.inner.mult_g[ci.value + $offset_function(model)]
+            # return -1 * model.inner.mult_g[ci.value + $offset_function(model)]
+            # TODO: Not sure if scaled by -1; disabled
+            return model.inner.mult_g[ci.value + $offset_function(model)]
         end
     end
 end
