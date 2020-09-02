@@ -409,10 +409,13 @@ function line_search_method(env::SLP)
     env.problem.x = env.x
 end
 
-function norm_violations(E::Vector{Float64}, g_L::Vector{Float64}, g_U::Vector{Float64})
-    # TODO: what about the column bounds?
+function norm_violations(
+    E::Vector{Float64}, g_L::Vector{Float64}, g_U::Vector{Float64},
+    x::Vector{Float64}, x_L::Vector{Float64}, x_U::Vector{Float64})
+
     m = length(E)
-    viol = zeros(m)
+    n = length(x)
+    viol = zeros(m+n)
     for i = 1:m
         if E[i] > g_U[i]
             viol[i] = E[i] - g_U[i]
@@ -420,10 +423,17 @@ function norm_violations(E::Vector{Float64}, g_L::Vector{Float64}, g_U::Vector{F
             viol[i] = g_L[i] - E[i]
         end
     end
+    for j = 1:n
+        if x[j] > x_U[j]
+            viol[m+j] = x[j] - x_U[j]
+        elseif x[j] < x_L[j]
+            viol[m+j] = x_L[j] - x[j]
+        end
+    end
     return norm(viol, Inf)
 end
-norm_violations(env::SLP) = norm_violations(env.E, env.problem.g_L, env.problem.g_U)
-norm_violations(env::SLP, x::Vector{Float64}) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U)
+norm_violations(env::SLP) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
+norm_violations(env::SLP, x::Vector{Float64}) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
 function norm_violations!(env::SLP)
     env.norm_E = norm_violations(env)
 end
