@@ -325,6 +325,7 @@ mutable struct SLP <: Environment
         slp.df = Vector{Float64}(undef, problem.n)
         slp.E = Vector{Float64}(undef, problem.m)
         slp.dE = Vector{Float64}(undef, length(problem.j_str))
+        slp.phi = Inf
 
         slp.norm_E = 0.0
         slp.mu = options["mu"]
