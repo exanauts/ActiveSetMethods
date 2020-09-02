@@ -5,7 +5,7 @@ const MOIU = MOI.Utilities
 const MOIB = MOI.Bridges
 
 const optimizer = ActiveSetMethods.Optimizer()
-MOI.set(optimizer, MOI.RawParameter("max_iter"), 10)
+MOI.set(optimizer, MOI.RawParameter("max_iter"), 50)
 
 const config = MOIT.TestConfig(atol=1e-4, rtol=1e-4,
                                optimal_status=MOI.LOCALLY_SOLVED)

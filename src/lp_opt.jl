@@ -16,8 +16,7 @@ constraint_lb is a vector containing the lower bound of the original constraints
 constraint_ub is a vector containing the upper bound of the original constraints
  	of the nonlinear optimization problem
 mu is a scalar number which defines the peanlty for constraint violations
-x_hat is the estinmated values of the original variables of the nonlinear
-	optimization problem
+	Δ is the size of the trust region
 
 The function returns the slution of the LP subproblem variables, status of the
 	LP subproblem solution, and duals of the constraints of the LP subproblem. 
@@ -25,7 +24,17 @@ The function returns the slution of the LP subproblem variables, status of the
 	onstraints will be an empty array.
 """
 
-function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
+function solve_lp(
+	c_init::SparseVector{Float64,Int},
+	A::SparseMatrixCSC{Float64,Int},
+	b::Vector{Float64},
+	x_L::Vector{Float64},
+	x_U::Vector{Float64},
+	constraint_lb::Vector{Float64},
+	constraint_ub::Vector{Float64},
+	mu::Float64,
+	x_k::Vector{Float64},
+	Δ::Float64)
 
 	model = Options_["LP_solver"]()
 	n = A.n;
@@ -33,8 +42,8 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 	@assert n > 0
 	@assert m >= 0
 
+	@assert length(c_init) == n+1
 	c = c_init[1:n];
-
 	c0 = c_init[n+1];
 	
 	#TODO all varialbes are defined as x ... change it to p so it is consistant with 
@@ -63,21 +72,18 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 
 	@assert length(x_L) == n
 	@assert length(x_U) == n
-	
-	# The original bounds of the x are imposed on p + x_hat
-	for i=1:n
-		term = MOI.ScalarAffineTerm{Float64}(1.0, x[i]);
 
-		if x_L[i] != -Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
-			MOI.ScalarAffineFunction([term], x_hat[i]), MOI.GreaterThan(x_L[i]));
-		end
-		if x_U[i] != Inf
-			MOI.Utilities.normalize_and_add_constraint(model,
-			MOI.ScalarAffineFunction([term], x_hat[i]), MOI.LessThan(x_U[i]));
-		end
+	# Add a dummy trust-region to all variables
+	constr_x_U = MOI.ConstraintIndex[]
+	constr_x_L = MOI.ConstraintIndex[]
+	for i = 1:n
+		ub = min(Δ, x_U[i] - x_k[i])
+		lb = max(-Δ, x_L[i] - x_k[i])
+		push!(constr_x_U, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub)))
+		push!(constr_x_L, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb)))
 	end
-
+	@assert length(constr_x_U) == n
+	@assert length(constr_x_L) == n
 	@assert length(constraint_lb) == m
 	@assert length(constraint_ub) == m
 	
@@ -121,7 +127,6 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 		MOI.ScalarAffineFunction([v_term], 0.0), MOI.GreaterThan(0.0));
 	end
 
-
 	MOI.optimize!(model);
 	status = MOI.get(model, MOI.TerminationStatus());
 	if Options_["mode"] == "Debug"
@@ -129,34 +134,42 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 		println("Status: ", status);
 	end
 
-	# statusPrimal = MOI.get(model, MOI.PrimalStatus());
-	# println("StatusPrimal: ", statusPrimal);
-	#
-	# statusDual = MOI.get(model, MOI.DualStatus());
-	# println("StatusDual: ", statusDual);
-	#
-	# Pobj = MOI.get(model, MOI.ObjectiveValue());
-	# println("Pobj: ", Pobj);
-	#
-	# Dobj = MOI.get(model, MOI.DualObjectiveValue());
-	# println("Dobj: ", Dobj);
-
-	#Dconst = MOI.get(model, MOI.ConstraintPrimal());
-	#println("Dconst: ", Dconst);
-
-
-
 	Xsol = zeros(n);
-	lambda = []
-
+	lambda = zeros(m)
+	mult_x_U = zeros(n)
+	mult_x_L = zeros(n)
 
 	if status == MOI.OPTIMAL
-		Xsol = MOI.get(model, MOI.VariablePrimal(), x);
+		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
 		if m > 0
 			Usol = MOI.get(model, MOI.VariablePrimal(), u);
 			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
 		end
-		lambda = MOI.get(model, MOI.ConstraintDual(1), constr);
+
+		# extract the multipliers to constraints
+		ci = 1
+		for i=1:m
+			lambda[i] = MOI.get(model, MOI.ConstraintDual(1), constr[ci])
+			ci += 1
+			if constraint_lb[i] > -Inf && constraint_ub[i] < Inf && constraint_lb[i] < constraint_ub[i]
+				lambda[i] += MOI.get(model, MOI.ConstraintDual(1), constr[ci])
+				ci += 1
+			end
+		end
+
+		# extract the multipliers to column bounds
+		mult_x_U = MOI.get(model, MOI.ConstraintDual(1), constr_x_U)
+		mult_x_L = MOI.get(model, MOI.ConstraintDual(1), constr_x_L)
+		# TODO: careful because of the trust region
+		for j=1:n
+			if Xsol[j] == Δ
+				multi_x_U[j] = 0.0
+			end
+			if Xsol[j] == -Δ
+				multi_x_L[j] = 0.0
+			end
+		end
+
 		if Options_["mode"] == "Debug"
 			println("Xsol: ", Xsol);
 			if m > 0
@@ -171,5 +184,17 @@ function solve_lp(c_init,A,b,x_L,x_U,constraint_lb,constraint_ub,mu,x_hat)
 		@error "Unexpected status: $(status)"
 	end
 
-	return(Xsol,lambda,status)
+	return Xsol, lambda, mult_x_U, mult_x_L, status
 end
+
+solve_lp(env::SLP, Δ) = solve_lp(
+	sparse([env.df; env.f]),
+	compute_jacobian_matrix(env),
+	env.E,
+	env.problem.x_L,
+	env.problem.x_U,
+	env.problem.g_L,
+	env.problem.g_U,
+	env.mu,
+	env.x,
+	Δ)

@@ -3,10 +3,10 @@ module ActiveSetMethods
 using LinearAlgebra, SparseArrays
 using GLPK # TODO: This needs to be removed.
 
-include("lp_opt.jl"); # containts the LP subproblem solution algorithm
-include("Options.jl"); # contains the Options_ such method, algorithm, parameters, LP solver, etc.
-include("struct.jl"); # constains the NoptProblem struct definition
-include("SLP_line_search.jl"); # contains the SLP line search algorithm
+include("Options.jl")
+include("struct.jl")
+include("SLP_line_search.jl")
+include("lp_opt.jl")
 
 
 export createNoptProblem, Options_
@@ -48,20 +48,17 @@ function createNoptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
                         eval_merit, eval_D, eval_h);
 end
 
-# Solves the ActiveSetMethods Problem
-#TODO make sure all the model internal structure are defined such as status and etc.
-function solveNoptProblem(model::NoptProblem)
-    ret = 5;
-
-    if (Options_["method"] == "SLP" && Options_["algorithm"] == "Line Search")
-        ret = SLP_line_search(model);
+"Solves the ActiveSetMethods Problem"
+function solveNloptProblem(model::NloptProblem)
+    if Options_["method"] == "SLP"
+        env = SLP(model, Options_)
+        if Options_["algorithm"] == "Line Search"
+            line_search_method(env);
+        end
     else
-        println("ERROR: The method is not defined")
+        @error "The method is not defined"
     end
-
-    println("ret: ", ret)
-    model.status = Int(ret)
-    return Int(ret)
+    return model.status 
 end
 
 
