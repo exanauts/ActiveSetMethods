@@ -351,12 +351,6 @@ function line_search_method(env::SLP)
         end
     end
 
-    for i = 1:env.problem.m
-        if env.problem.g_U[i] < Inf && env.problem.g_L[i] > -Inf
-            @error "Range constraints are not supposed."
-        end
-    end
-
     itercnt = 1
 
     @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")

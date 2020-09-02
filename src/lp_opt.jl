@@ -131,7 +131,7 @@ function solve_lp(
 	end
 
 	Xsol = zeros(n);
-	lambda = zeros(length(constr))
+	lambda = zeros(m)
 
 	if status == MOI.OPTIMAL
 		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
@@ -139,7 +139,18 @@ function solve_lp(
 			Usol = MOI.get(model, MOI.VariablePrimal(), u);
 			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
 		end
-		lambda .= MOI.get(model, MOI.ConstraintDual(1), constr);
+
+		# extract the multipliers to constraints
+		ci = 1
+		for i=1:m
+			lambda[i] = MOI.get(model, MOI.ConstraintDual(1), constr[ci])
+			ci += 1
+			if constraint_lb[i] > -Inf && constraint_ub[i] < Inf && constraint_lb[i] < constraint_ub[i]
+				lambda[i] += MOI.get(model, MOI.ConstraintDual(1), constr[ci])
+				ci += 1
+			end
+		end
+
 		if Options_["mode"] == "Debug"
 			println("Xsol: ", Xsol);
 			if m > 0
