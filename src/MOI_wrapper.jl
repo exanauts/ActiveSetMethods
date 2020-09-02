@@ -183,6 +183,53 @@ function MOI.get(model::Optimizer, ::MOI.ListOfConstraints)
     return collect(constraints)
 end
 
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.LessThan{Float64}}
+)
+    return model.linear_le_constraints[c.value].set
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.EqualTo{Float64}}
+)
+    return model.linear_eq_constraints[c.value].set
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.ScalarAffineFunction{Float64}, MOI.GreaterThan{Float64}}
+)
+    return model.linear_ge_constraints[c.value].set
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}}
+)
+    return MOI.LessThan{Float64}(model.variable_info[c.value].upper_bound)
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}
+)
+    return MOI.EqualTo{Float64}(model.variable_info[c.value].lower_bound)
+end
+
+function MOI.get(
+    model::Optimizer,
+    ::MOI.ConstraintSet,
+    c::MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}}
+)
+    return MOI.GreaterThan{Float64}(model.variable_info[c.value].lower_bound)
+end
 
 function MOI.set(model::Optimizer, ::MOI.ObjectiveSense,
                  sense::MOI.OptimizationSense)
@@ -260,6 +307,20 @@ function MOI.add_variable(model::Optimizer)
 end
 function MOI.add_variables(model::Optimizer, n::Int)
     return [MOI.add_variable(model) for i in 1:n]
+end
+
+MOI.is_valid(model::Optimizer, vi::MOI.VariableIndex) = vi.value in eachindex(model.variable_info)
+function MOI.is_valid(model::Optimizer, ci::MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}})
+    vi = MOI.VariableIndex(ci.value)
+    return MOI.is_valid(model, vi) && has_upper_bound(model, vi)
+end
+function MOI.is_valid(model::Optimizer, ci::MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}})
+    vi = MOI.VariableIndex(ci.value)
+    return MOI.is_valid(model, vi) && has_lower_bound(model, vi)
+end
+function MOI.is_valid(model::Optimizer, ci::MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}})
+    vi = MOI.VariableIndex(ci.value)
+    return MOI.is_valid(model, vi) && is_fixed(model, vi)
 end
 
 function check_inbounds(model::Optimizer, vi::MOI.VariableIndex)
@@ -354,6 +415,31 @@ function MOI.add_constraint(model::Optimizer, v::MOI.SingleVariable, eq::MOI.Equ
     model.variable_info[vi.value].upper_bound = eq.value
     model.variable_info[vi.value].is_fixed = true
     return MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}}(vi.value)
+end
+
+function MOI.set(model::Optimizer, ::MOI.ConstraintSet,
+                 ci::MOI.ConstraintIndex{MOI.SingleVariable, MOI.LessThan{Float64}},
+                 set::MOI.LessThan{Float64})
+    MOI.throw_if_not_valid(model, ci)
+    model.variable_info[ci.value].upper_bound = set.upper
+    return
+end
+
+function MOI.set(model::Optimizer, ::MOI.ConstraintSet,
+                 ci::MOI.ConstraintIndex{MOI.SingleVariable, MOI.GreaterThan{Float64}},
+                 set::MOI.GreaterThan{Float64})
+    MOI.throw_if_not_valid(model, ci)
+    model.variable_info[ci.value].lower_bound = set.lower
+    return
+end
+
+function MOI.set(model::Optimizer, ::MOI.ConstraintSet,
+                 ci::MOI.ConstraintIndex{MOI.SingleVariable, MOI.EqualTo{Float64}},
+                 set::MOI.EqualTo{Float64})
+    MOI.throw_if_not_valid(model, ci)
+    model.variable_info[ci.value].lower_bound = set.value
+    model.variable_info[ci.value].upper_bound = set.value
+    return
 end
 
 macro define_add_constraint(function_type, set_type, prefix)
@@ -1023,24 +1109,23 @@ function MOI.optimize!(model::Optimizer)
 
     model.solve_time = time() - start_time
 
-    #=
-    println("Optimize! final begin .....");
-    println("##########-------->inner: ", model.inner);
-    println("##########-------->variable_info: ", model.variable_info);
-    println("##########-------->nlp_data: ", model.nlp_data);
-    println("##########-------->sense: ", model.sense);
-    println("##########-------->objective: ", model.objective);
-    println("##########-------->linear_le_constraints: ", model.linear_le_constraints);
-    println("##########-------->linear_ge_constraints: ", model.linear_ge_constraints);
-    println("##########-------->linear_eq_constraints: ",  model.linear_eq_constraints);
-    println("##########-------->quadratic_le_constraints: ", model.quadratic_le_constraints);
-    println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
-    println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
-    println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
-    println("##########-------->silent: ", model.silent);
-    println("##########-------->options: ", model.options);
-    println("##########-------->solve_time: ", model.solve_time);
-    println("..... Optimize! final End");=#
+    # println("Optimize! final begin .....");
+    # println("##########-------->inner: ", model.inner);
+    # println("##########-------->variable_info: ", model.variable_info);
+    # println("##########-------->nlp_data: ", model.nlp_data);
+    # println("##########-------->sense: ", model.sense);
+    # println("##########-------->objective: ", model.objective);
+    # println("##########-------->linear_le_constraints: ", model.linear_le_constraints);
+    # println("##########-------->linear_ge_constraints: ", model.linear_ge_constraints);
+    # println("##########-------->linear_eq_constraints: ",  model.linear_eq_constraints);
+    # println("##########-------->quadratic_le_constraints: ", model.quadratic_le_constraints);
+    # println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
+    # println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
+    # println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
+    # println("##########-------->silent: ", model.silent);
+    # println("##########-------->options: ", model.options);
+    # println("##########-------->solve_time: ", model.solve_time);
+    # println("..... Optimize! final End");
 
     return
 end
