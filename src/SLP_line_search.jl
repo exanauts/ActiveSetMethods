@@ -341,17 +341,16 @@ function line_search_method(env::SLP)
 
     Δ = env.options["TR_size"]
 
-    # This sets x0, initial point.
-    # TODO: This must be set by MOI.
+    # Set initial point from MOI
+    @assert length(env.x) == length(env.problem.x)
+    env.x .= env.problem.x
+    # Adjust the initial point to satisfy the column bounds
     for i = 1:env.problem.n
-        if env.problem.x_L[i] > -Inf && env.problem.x_U[i] < Inf
-            env.x[i] = 0.5 * (env.problem.x_L[i] + env.problem.x_U[i])
-        elseif env.problem.x_L[i] > -Inf
-            env.x[i] = env.problem.x_L[i]
-        elseif env.problem.x_U[i] < Inf
-            env.x[i] = env.problem.x_U[i]
-        else
-            env.x[i] = 0.0
+        if env.problem.x_L[i] > -Inf
+            env.x[i] = max(env.x[i], env.problem.x_L[i])
+        end
+        if env.problem.x_U[i] > -Inf
+            env.x[i] = min(env.x[i], env.problem.x_U[i])
         end
     end
     # @show env.problem.x
