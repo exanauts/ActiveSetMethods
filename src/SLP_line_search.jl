@@ -296,6 +296,8 @@ mutable struct SLP <: Environment
     x::Vector{Float64}
     p::Vector{Float64}
     lambda::Vector{Float64}
+    mult_x_L::Vector{Float64}
+    mult_x_U::Vector{Float64}
     
     f::Float64
     df::Vector{Float64}
@@ -318,6 +320,8 @@ mutable struct SLP <: Environment
         slp.x = Vector{Float64}(undef, problem.n)
         slp.p = Vector{Float64}(undef, problem.n)
         slp.lambda = zeros(problem.m)
+        slp.mult_x_L = zeros(problem.n)
+        slp.mult_x_U = zeros(problem.n)
         slp.df = Vector{Float64}(undef, problem.n)
         slp.E = Vector{Float64}(undef, problem.m)
         slp.dE = Vector{Float64}(undef, length(problem.j_str))
@@ -350,12 +354,11 @@ function line_search_method(env::SLP)
             env.x[i] = 0.0
         end
     end
-
-    for i = 1:env.problem.m
-        if env.problem.g_U[i] < Inf && env.problem.g_L[i] > -Inf
-            @error "Range constraints are not supposed."
-        end
-    end
+    # @show env.problem.x
+    # @show env.problem.g_L
+    # @show env.problem.g_U
+    # @show env.problem.x_L
+    # @show env.problem.x_U
 
     itercnt = 1
 
@@ -376,12 +379,18 @@ function line_search_method(env::SLP)
         end
 
         # solve LP subproblem
-        env.p, lambda, status = solve_lp(env, Δ)
+        env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
         @assert length(env.lambda) == length(lambda)
+
+        # update multipliers
+        env.lambda += env.alpha .* (lambda - env.lambda)
+        env.mult_x_U += env.alpha .* (mult_x_U - env.mult_x_U)
+        env.mult_x_L += env.alpha .* (mult_x_L - env.mult_x_L)
 
         # directional derivative
         compute_derivative!(env)
         if env.directional_derivative > -1.e-6
+            println("Terminated due to the directional derivative.")
             env.ret = 0
             break
         end
@@ -399,9 +408,8 @@ function line_search_method(env::SLP)
         end
         itercnt += 1
 
-        # update primal/dual points
+        # update primal points
         env.x += env.alpha .* env.p
-        env.lambda += env.alpha .* (lambda - env.lambda)
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
@@ -409,6 +417,8 @@ function line_search_method(env::SLP)
     env.problem.x = env.x
     env.problem.g = env.E
     env.problem.mult_g = env.lambda
+    env.problem.mult_x_U = env.mult_x_U
+    env.problem.mult_x_L = env.mult_x_L
 end
 
 function norm_violations(
