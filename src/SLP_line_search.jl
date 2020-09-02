@@ -325,6 +325,7 @@ mutable struct SLP <: Environment
         slp.df = Vector{Float64}(undef, problem.n)
         slp.E = Vector{Float64}(undef, problem.m)
         slp.dE = Vector{Float64}(undef, length(problem.j_str))
+        slp.phi = Inf
 
         slp.norm_E = 0.0
         slp.mu = options["mu"]
@@ -390,7 +391,7 @@ function line_search_method(env::SLP)
 
         # directional derivative
         compute_derivative!(env)
-        if env.directional_derivative > -1.e-6
+        if env.directional_derivative > -1.e-10
             @printf("Terminated: directional derivative (%e)\n", env.directional_derivative)
             env.ret = 0
             break
