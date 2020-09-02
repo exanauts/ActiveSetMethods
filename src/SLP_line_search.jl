@@ -353,11 +353,6 @@ function line_search_method(env::SLP)
             env.x[i] = min(env.x[i], env.problem.x_U[i])
         end
     end
-    # @show env.problem.x
-    # @show env.problem.g_L
-    # @show env.problem.g_U
-    # @show env.problem.x_L
-    # @show env.problem.x_U
 
     itercnt = 1
 
