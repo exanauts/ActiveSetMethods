@@ -1,8 +1,3 @@
-import MathOptInterface
-
-const MOI = MathOptInterface
-const MOIU = MathOptInterface.Utilities
-
 mutable struct VariableInfo
     lower_bound::Float64  # May be -Inf even if has_lower_bound == true
     has_lower_bound::Bool # Implies lower_bound == Inf
@@ -42,7 +37,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
 
     # Parameters.
     silent::Bool
-    options::Dict{String, Any}
+    options::Parameters
 
     # Solution attributes.
     solve_time::Float64
@@ -50,7 +45,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     function Optimizer(;kwargs...)
         prob = new(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
                          nothing, [], [], [], [], [], [], nothing,
-                         false, Options_, NaN);
+                         false, Parameters(), NaN);
         # Free the internal IpoptProblem structure when
         # the Julia IpoptProblem instance goes out of scope
         return prob
@@ -81,13 +76,6 @@ function MOI.eval_hessian_lagrangian(::EmptyNLPEvaluator, H, x, σ, μ)
 end
 
 empty_nlp_data() = MOI.NLPBlockData([], EmptyNLPEvaluator(), false)
-
-
-# function Optimizer(;kwargs...)
-#     return Optimizer(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
-#                      nothing, [], [], [], [], [], [], nothing,
-#                      false, Options_, NaN);
-# end
 
 MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
 
@@ -374,30 +362,26 @@ end
 
 MOI.get(model::Optimizer, ::MOI.Silent) = model.silent
 
-const TIME_LIMIT = "max_cpu_time"
+const TIME_LIMIT = "time_limit"
 MOI.supports(::Optimizer, ::MOI.TimeLimitSec) = true
 function MOI.set(model::Optimizer, ::MOI.TimeLimitSec, value::Real)
     MOI.set(model, MOI.RawParameter(TIME_LIMIT), Float64(value))
 end
 function MOI.set(model::Optimizer, attr::MOI.TimeLimitSec, ::Nothing)
-    delete!(model.options, TIME_LIMIT)
+    # delete!(model.options, TIME_LIMIT)
 end
 function MOI.get(model::Optimizer, ::MOI.TimeLimitSec)
-    return get(model.options, TIME_LIMIT, nothing)
+    return get_parameter(model.options, TIME_LIMIT)
 end
 
 
 function MOI.set(model::Optimizer, p::MOI.RawParameter, value)
-    model.options[p.name] = value
-    Options_[p.name] = value
+    set_parameter(model.options, p.name, value)
     return
 end
 
 function MOI.get(model::Optimizer, p::MOI.RawParameter)
-    if haskey(model.options, p.name)
-        return model.options[p.name]
-    end
-    error("RawParameter with name $(p.name) is not set.")
+    return get_parameter(model.options, p.name)
 end
 
 MOI.get(model::Optimizer, ::MOI.SolveTime) = model.solve_time
@@ -1128,36 +1112,12 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-------->constraint_ub: ", constraint_ub);
     #println(" ---- Optimize! Parameters End");
 
-    eval_merit(x, norm_E, mu) = eval_f_cb(x) + mu * norm_E;
-    eval_D(x, df, norm_E, mu, p) = eval_grad_f_cb(x, df)' * p - mu * norm_E;
-    #TODO Make eval_norm_E more robust, it might fail for some constraints
-    function eval_norm_E(x,E1,L,U)
-        E_temp = eval_g_cb(x, E1);
-        # println("U inside eval_norm_E: ", U)
-        # println("E inside eval_norm_E: ", E)
-        # println("L inside eval_norm_E: ", L)
-
-        for i=1:length(E_temp)
-            if E_temp[i] > U[i]
-                E_temp[i] = E_temp[i] - U[i]
-            elseif E_temp[i] < L[i]
-                E_temp[i] = L[i] - E_temp[i]
-            else
-                E_temp[i] = 0.0;
-            end
-             # E[i] = (E[i] >= U[i]) ? E[i] - U[i] : 0.0;
-             # E[i] = (E[i] <= L[i]) ? L[i] - E[i] : 0.0;
-             # E[i] = (E[i] <= U[i] && E[i] >= L[i]) ? 0.0 : E[i];
-        end
-        # println("E inside eval_norm_E: ", E)
-        return sum(abs.(E_temp))
-    end
-
-
-    model.inner = createNloptProblem(num_variables, x_l, x_u, num_constraints,
-                            constraint_lb, constraint_ub, jacobian_sparsity,hessian_sparsity,
-                            eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb,
-                            eval_norm_E,eval_merit,eval_D,eval_h_cb)
+    model.inner = createNloptProblem(
+        num_variables, x_l, x_u, 
+        num_constraints, constraint_lb, constraint_ub, 
+        jacobian_sparsity, hessian_sparsity,
+        eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb, eval_h_cb,
+        model.options)
     #println("##########-----********--->created model.innern: ", model.inner);
 
     # Ipopt crashes by default if NaN/Inf values are returned from the
@@ -1292,8 +1252,6 @@ function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     elseif status == :Invalid_Number_Detected
         return MOI.INVALID_MODEL
     elseif status == :Unrecoverable_Exception
-        return MOI.OTHER_ERROR
-    elseif status == :NonIpopt_Exception_Thrown
         return MOI.OTHER_ERROR
     elseif status == :Insufficient_Memory
         return MOI.MEMORY_LIMIT

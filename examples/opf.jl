@@ -1,8 +1,6 @@
 using ActiveSetMethods
 using PowerModels, JuMP, GLPK
 
-Options_["LP_solver"] = GLPK.Optimizer
-
 function run_opf(data_file::String)
     network_data = PowerModels.parse_file(data_file)
     

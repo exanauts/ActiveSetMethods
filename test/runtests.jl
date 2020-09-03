@@ -15,6 +15,5 @@ end
 
 # @testset "opf.jl" begin
 #     include("../examples/opf.jl")
-#     Options_["max_iter"] = 10
 #     run_opf("../examples/cases/case3.m")
 # end
