@@ -1,15 +1,19 @@
 module ActiveSetMethods
 
 using LinearAlgebra, SparseArrays
-using GLPK # TODO: This needs to be removed.
 
-include("Options.jl")
+import MathOptInterface
+
+const MOI = MathOptInterface
+const MOIU = MathOptInterface.Utilities
+
+include("Parameters.jl")
 include("struct.jl")
 include("SLP_line_search.jl")
 include("lp_opt.jl")
 
 
-export createNloptProblem, Options_
+export createNloptProblem
 export solveNloptProblem
 export NloptProblem
 
@@ -38,31 +42,39 @@ normdCx = Array{Float64,1}()
 
 
 "Creates the ActiveSetMethods Problem"
-function createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
+createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
     m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, j_sparsity::Array{Tuple{Int64,Int64}},
-    h_sparsity::Array{Tuple{Int64,Int64}}, eval_f, eval_g, eval_grad_f, eval_jac_g,
-    eval_norm_E = nothing, eval_merit = nothing, eval_D = nothing, eval_h = nothing)
+    h_sparsity::Array{Tuple{Int64,Int64}}, 
+    eval_f::Function, eval_g::Function, eval_grad_f::Function, eval_jac_g::Function, eval_h, 
+    parameters::Parameters) = NloptProblem(
+        n, x_L, x_U, m, g_L, g_U, j_sparsity, h_sparsity,
+        eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h, parameters)
 
-    return NloptProblem(n, x_L, x_U, m, g_L, g_U, j_sparsity, h_sparsity,
-                        eval_f, eval_g, eval_grad_f, eval_jac_g, eval_norm_E,
-                        eval_merit, eval_D, eval_h);
-end
+createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
+    m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, j_sparsity::Array{Tuple{Int64,Int64}},
+    h_sparsity::Array{Tuple{Int64,Int64}}, 
+    eval_f::Function, eval_g::Function, eval_grad_f::Function, eval_jac_g::Function,
+    parameters::Parameters) = createNloptProblem(
+        n, x_L, x_U, m, g_L, g_U, 
+        j_sparsity, h_sparsity, eval_f, eval_g, eval_grad_f, eval_jac_g, nothing, 
+        parameters)
 
 "Solves the ActiveSetMethods Problem"
 function solveNloptProblem(model::NloptProblem)
-    if Options_["method"] == "SLP"
-        env = SLP(model, Options_)
-        if Options_["algorithm"] == "Line Search"
-            line_search_method(env);
-        end
+    if isnothing(model.parameters.external_optimizer)
+        @warn "`external_optimizer` parameter must be set for subproblem solutions."
     else
-        @error "The method is not defined"
+        if model.parameters.method == "SLP"
+            env = SLP(model)
+            if model.parameters.algorithm == "Line Search"
+                line_search_method(env);
+            end
+        else
+            @error "The method is not defined"
+        end
     end
     return model.status 
 end
-
-
-
 
 include("MOI_wrapper.jl")
 # include("analysis.jl")

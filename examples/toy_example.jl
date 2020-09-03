@@ -1,9 +1,8 @@
 using ActiveSetMethods, GLPK
 using JuMP
 
-#model = Model(optimizer_with_attributes(solver, "lp_solver" => GLPK.Optimizer()));
 model = Model(ActiveSetMethods.Optimizer);
-set_optimizer_attribute(model, "LP_solver", GLPK.Optimizer)
+set_optimizer_attribute(model, "external_optimizer", GLPK.Optimizer())
 
 @variable(model, X);
 @variable(model, Y);
@@ -18,7 +17,11 @@ print(model);
 println("________________________________________");
 JuMP.optimize!(model);
 
-println("Xsol = ",JuMP.value.(X));
-println("Ysol = ",JuMP.value.(Y));
+xsol = JuMP.value.(X)
+ysol = JuMP.value.(Y)
+status = termination_status(model)
 
-println("Status: ", termination_status(model));
+println("Xsol = ", xsol);
+println("Ysol = ", ysol);
+
+println("Status: ", status);

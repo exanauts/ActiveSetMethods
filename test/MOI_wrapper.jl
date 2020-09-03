@@ -5,7 +5,8 @@ const MOIU = MOI.Utilities
 const MOIB = MOI.Bridges
 
 const optimizer = ActiveSetMethods.Optimizer()
-MOI.set(optimizer, MOI.RawParameter("max_iter"), 50)
+MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer())
+MOI.set(optimizer, MOI.RawParameter("max_iter"), 1000)
 
 const config = MOIT.TestConfig(atol=1e-4, rtol=1e-4,
                                optimal_status=MOI.LOCALLY_SOLVED)
@@ -24,23 +25,9 @@ end
     @test !MOIU.supports_default_copy_to(optimizer, true)
 end
 
-# @testset "My MOI Debugging" begin
-#     model = MOIB.full_bridge_optimizer(ActiveSetMethods.Optimizer(), Float64)
-#     x = MOI.add_variable(model)
-#     objective_function = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
-#     MOI.set(model,
-#             MOI.ObjectiveFunction{typeof(objective_function)}(),
-#             objective_function)
-#     MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
-
-#     f = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0, 1.0], [x, x]), 0.0)
-#     c = MOI.add_constraint(model, f, MOI.LessThan(1.0))
-#     MOI.optimize!(model)
-# end
-
 @testset "Unit" begin
     bridged = MOIB.full_bridge_optimizer(
-        ActiveSetMethods.Optimizer(print_level=0, fixed_variable_treatment="make_constraint"),
+        ActiveSetMethods.Optimizer(external_optimizer = GLPK.Optimizer()),
         Float64)
     # A number of test cases are excluded because loadfromstring! works only
     # if the solver supports variable and constraint names.
@@ -72,7 +59,7 @@ end
                "delete_soc_variables", # VectorOfVar. in SOC not supported
                "solve_result_index", # DualObjectiveValue not supported
                ]
-    MOIT.unittest(bridged, config, exclude)
+    MOIT.unittest(bridged, config_no_duals, exclude)
 end
 
 @testset "MOI Linear tests" begin
@@ -91,29 +78,36 @@ end
     MOIT.linear4test(optimizer, config_no_duals)
 end
 
-# MOI.empty!(optimizer)
+MOI.empty!(optimizer)
 
-# @testset "MOI QP/QCQP tests" begin
-#     qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
-#     MOIT.qptest(qp_optimizer, config)
-#     exclude = ["qcp1", # VectorAffineFunction not supported.
-#               ]
-#     MOIT.qcptest(qp_optimizer, config_no_duals, exclude)
-# end
+# This tests qp1, qp2, and qp3.
+@testset "MOI QP tests" begin
+    qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
+    # SLP returns the max iteration limit for these instances.
+    exclude = ["qp1", "qp2"]
+    MOIT.qptest(qp_optimizer, config_no_duals, exclude)
+end
+
+MOI.empty!(optimizer)
+
+@testset "MOI QCQP tests" begin
+    qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
+    exclude = ["qcp1", # VectorAffineFunction not supported.
+              "qcp2", "qcp3"] # These don't converge.
+    MOIT.qcptest(qp_optimizer, config_no_duals, exclude)
+end
+
+@testset "Testing getters" begin
+    MOI.Test.copytest(MOI.instantiate(ActiveSetMethods.Optimizer, with_bridge_type=Float64), MOIU.Model{Float64}())
+end
+
+@testset "Bounds set twice" begin
+    MOI.Test.set_lower_bound_twice(optimizer, Float64)
+    MOI.Test.set_upper_bound_twice(optimizer, Float64)
+end
 
 # MOI.empty!(optimizer)
 
 # @testset "MOI NLP tests" begin
 #     MOIT.nlptest(optimizer, config)
 # end
-
-# @testset "Testing getters" begin
-#     MOI.Test.copytest(MOI.instantiate(ActiveSetMethods.Optimizer, with_bridge_type=Float64), MOIU.Model{Float64}())
-# end
-
-# @testset "Bounds set twice" begin
-#     MOI.Test.set_lower_bound_twice(optimizer, Float64)
-#     MOI.Test.set_upper_bound_twice(optimizer, Float64)
-# end
-
-# TODO run basic tests for `SingleVariable` constraints: https://github.com/jump-dev/MathOptInterface.jl/pull/1133

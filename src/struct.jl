@@ -21,9 +21,6 @@ mutable struct NloptProblem
     eval_g::Function
     eval_grad_f::Function
     eval_jac_g::Function
-    eval_norm_E
-    eval_merit
-    eval_D
 
     eval_h  # Can be nothing
     intermediate  # Can be nothing
@@ -31,18 +28,16 @@ mutable struct NloptProblem
     # For MathProgBase
     sense::Symbol
 
+    parameters::Parameters
+
     function NloptProblem(n, x_L, x_U, m, g_L, g_U, j_sparsity, h_sparsity,
-                          eval_f, eval_g, eval_grad_f, eval_jac_g,eval_norm_E,
-                          eval_merit, eval_D, eval_h)
-        prob = new(n, m, zeros(Float64, n), x_L, x_U, zeros(Float64, m), g_L, g_U,
+                          eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h,
+                          parameters)
+        return new(n, m, zeros(Float64, n), x_L, x_U, zeros(Float64, m), g_L, g_U,
                    j_sparsity, h_sparsity, zeros(Float64,m), zeros(Float64,n),
                    zeros(Float64,n), 0.0, 0, eval_f, eval_g, eval_grad_f,
-                   eval_jac_g, eval_norm_E, eval_merit, eval_D, eval_h, nothing,
-                   :Min)
-        # Free the internal IpoptProblem structure when
-        # the Julia IpoptProblem instance goes out of scope
-        # finalizer(freeProblem, prob)
-        return prob
+                   eval_jac_g, eval_h, nothing, :Min,
+                   parameters)
     end
 end
 
@@ -66,6 +61,5 @@ ApplicationReturnStatus = Dict(
 -12=>:Invalid_Option,
 -13=>:Invalid_Number_Detected,
 -100=>:Unrecoverable_Exception,
--101=>:NonIpopt_Exception_Thrown,
 -102=>:Insufficient_Memory,
 -199=>:Internal_Error)
