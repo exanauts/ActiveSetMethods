@@ -5,6 +5,7 @@ const MOIU = MOI.Utilities
 const MOIB = MOI.Bridges
 
 const optimizer = ActiveSetMethods.Optimizer()
+MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer())
 MOI.set(optimizer, MOI.RawParameter("max_iter"), 1000)
 
 const config = MOIT.TestConfig(atol=1e-4, rtol=1e-4,
@@ -26,7 +27,7 @@ end
 
 @testset "Unit" begin
     bridged = MOIB.full_bridge_optimizer(
-        ActiveSetMethods.Optimizer(print_level=0, fixed_variable_treatment="make_constraint"),
+        ActiveSetMethods.Optimizer(external_optimizer = GLPK.Optimizer()),
         Float64)
     # A number of test cases are excluded because loadfromstring! works only
     # if the solver supports variable and constraint names.
@@ -58,7 +59,7 @@ end
                "delete_soc_variables", # VectorOfVar. in SOC not supported
                "solve_result_index", # DualObjectiveValue not supported
                ]
-    MOIT.unittest(bridged, config, exclude)
+    MOIT.unittest(bridged, config_no_duals, exclude)
 end
 
 @testset "MOI Linear tests" begin

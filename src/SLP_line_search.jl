@@ -74,15 +74,10 @@ function line_search_method(env::SLP)
     while true
         eval_functions!(env)
         norm_violations!(env)
-
-        # @show env.f, env.mu, env.norm_E
-        compute_mu!(env)
         compute_phi!(env)
-        @assert !isnan(env.phi)
 
         err = compute_normalized_Kuhn_Tucker_residuals(env)
         @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", itercnt, env.f, env.phi, env.norm_E, norm(env.df), err)
-
         if err <= env.options.tol_residual && env.norm_E <= env.options.tol_infeas
             @printf("Terminated: KT residuals (%e)\n", err)
             env.ret = 0;
@@ -95,13 +90,8 @@ function line_search_method(env::SLP)
         # @show env.x
         # @show env.p
 
-        # update multipliers
-        env.lambda += env.alpha .* (lambda - env.lambda)
-        env.mult_x_U += env.alpha .* (mult_x_U - env.mult_x_U)
-        env.mult_x_L += env.alpha .* (mult_x_L - env.mult_x_L)
-        # @show env.lambda
-        # @show env.mult_x_U
-        # @show env.mult_x_L
+        # @show env.f, env.mu, env.norm_E
+        compute_mu!(env)
 
         # directional derivative of the 1-norm merit function
         compute_derivative!(env)
@@ -117,15 +107,23 @@ function line_search_method(env::SLP)
             break
         end
 
+        # update primal points
+        env.x += env.alpha .* env.p
+
+        # update multipliers
+        env.lambda += env.alpha .* (lambda - env.lambda)
+        env.mult_x_U += env.alpha .* (mult_x_U - env.mult_x_U)
+        env.mult_x_L += env.alpha .* (mult_x_L - env.mult_x_L)
+        # @show env.lambda
+        # @show env.mult_x_U
+        # @show env.mult_x_L
+
         # Iteration counter limit
         if itercnt >= env.options.max_iter
             env.ret = -1
             break
         end
         itercnt += 1
-
-        # update primal points
-        env.x += env.alpha .* env.p
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
@@ -197,9 +195,12 @@ end
 function compute_mu!(env::SLP)
     # Update mu only for positive violation
     if env.norm_E > 0
-        env.mu = max(
-            env.mu,
-            env.df' * env.p / (1 - env.options.rho) / env.norm_E)
+        denom = (1 - env.options.rho) * env.norm_E
+        if denom > 0
+            env.mu = max(
+                env.mu,
+                (env.df' * env.p) / denom)
+        end
     end
 end
 
@@ -224,9 +225,6 @@ compute_phi(f::Float64, mu::Float64, norm_E::Float64)::Float64 = f + mu * norm_E
 compute_phi(env::SLP)::Float64 = compute_phi(env.f, env.mu, env.norm_E)
 compute_phi(env::SLP, x::Vector{Float64})::Float64 = compute_phi(env.problem.eval_f(x), env.mu, norm_violations(env, x))
 function compute_phi!(env::SLP)
-    @assert !isnan(env.f)
-    @assert !isnan(env.mu)
-    @assert !isnan(env.norm_E)
     env.phi = compute_phi(env)
 end
 

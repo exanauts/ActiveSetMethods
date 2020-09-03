@@ -42,12 +42,13 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     # Solution attributes.
     solve_time::Float64
 
-    function Optimizer(;kwargs...)
+    function Optimizer(; kwargs...)
         prob = new(nothing, [], empty_nlp_data(), MOI.FEASIBILITY_SENSE,
                          nothing, [], [], [], [], [], [], nothing,
                          false, Parameters(), NaN);
-        # Free the internal IpoptProblem structure when
-        # the Julia IpoptProblem instance goes out of scope
+        for (k, v) in kwargs
+            set_parameter(prob.options, string(k), v)
+        end
         return prob
     end
 end

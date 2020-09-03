@@ -37,6 +37,9 @@ function solve_lp(
 	Δ::Float64,
 	model::MOI.AbstractOptimizer)
 
+	# empty optimizer just in case
+	MOI.empty!(model)
+
 	n = A.n;
 	m = A.m;
 	@assert n > 0
@@ -185,4 +188,4 @@ solve_lp(env::SLP, Δ) = solve_lp(
 	env.mu,
 	env.x,
 	Δ,
-	env.options.external_optimizer())
+	env.options.external_optimizer)

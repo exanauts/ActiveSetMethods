@@ -1,7 +1,6 @@
 module ActiveSetMethods
 
 using LinearAlgebra, SparseArrays
-using GLPK # TODO: This needs to be removed.
 
 import MathOptInterface
 
@@ -62,19 +61,20 @@ createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
 
 "Solves the ActiveSetMethods Problem"
 function solveNloptProblem(model::NloptProblem)
-    if model.parameters.method == "SLP"
-        env = SLP(model)
-        if model.parameters.algorithm == "Line Search"
-            line_search_method(env);
-        end
+    if isnothing(model.parameters.external_optimizer)
+        @warn "`external_optimizer` parameter must be set for subproblem solutions."
     else
-        @error "The method is not defined"
+        if model.parameters.method == "SLP"
+            env = SLP(model)
+            if model.parameters.algorithm == "Line Search"
+                line_search_method(env);
+            end
+        else
+            @error "The method is not defined"
+        end
     end
     return model.status 
 end
-
-
-
 
 include("MOI_wrapper.jl")
 # include("analysis.jl")
