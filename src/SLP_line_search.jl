@@ -210,6 +210,9 @@ function compute_mu!(env::SLP)
         if denom > 0
             env.mu = max(env.mu, (env.df' * env.p) / denom)
         end
+    else
+        env.mu *= 0.9
+        # @printf("* large penalty: reduce mu to %e\n", env.mu)
     end
     # @show env.mu
 end
