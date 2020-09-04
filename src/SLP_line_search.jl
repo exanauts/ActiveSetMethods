@@ -156,7 +156,7 @@ function norm_violations(
             viol[m+j] = x_L[j] - x[j]
         end
     end
-    return norm(viol, Inf)
+    return norm(viol, 1)
 end
 norm_violations(env::SLP) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
 norm_violations(env::SLP, x::Vector{Float64}) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
