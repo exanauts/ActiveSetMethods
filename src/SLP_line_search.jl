@@ -128,6 +128,9 @@ function line_search_method(env::SLP)
         # Iteration counter limit
         if env.iter >= env.options.max_iter
             env.ret = -1
+            if norm_violations(env, env.x) <= env.options.tol_infeas
+                env.ret = 6
+            end
             break
         end
         env.iter += 1
