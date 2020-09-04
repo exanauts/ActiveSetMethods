@@ -24,6 +24,7 @@ mutable struct SLP <: Environment
 
     options::Parameters
 
+    iter::Int
     ret::Int
 
     function SLP(problem::NloptProblem)
@@ -46,6 +47,7 @@ mutable struct SLP <: Environment
 
         slp.options = problem.parameters
 
+        slp.iter = 1
         slp.ret = -5
         return slp
     end
@@ -68,7 +70,7 @@ function line_search_method(env::SLP)
         end
     end
 
-    itercnt = 1
+    env.iter = 1
 
     @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")
     while true
@@ -77,7 +79,7 @@ function line_search_method(env::SLP)
         compute_phi!(env)
 
         err = compute_normalized_Kuhn_Tucker_residuals(env)
-        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", itercnt, env.f, env.phi, env.norm_E, norm(env.df), err)
+        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, env.norm_E, norm(env.df), err)
         if err <= env.options.tol_residual && env.norm_E <= env.options.tol_infeas
             @printf("Terminated: KT residuals (%e)\n", err)
             env.ret = 0;
@@ -119,11 +121,11 @@ function line_search_method(env::SLP)
         # @show env.mult_x_L
 
         # Iteration counter limit
-        if itercnt >= env.options.max_iter
+        if env.iter >= env.options.max_iter
             env.ret = -1
             break
         end
-        itercnt += 1
+        env.iter += 1
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
