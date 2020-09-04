@@ -31,7 +31,7 @@ mutable struct SLP <: Environment
         slp = new()
         slp.problem = problem
         slp.x = Vector{Float64}(undef, problem.n)
-        slp.p = Vector{Float64}(undef, problem.n)
+        slp.p = zeros(problem.n)
         slp.lambda = zeros(problem.m)
         slp.mult_x_L = zeros(problem.n)
         slp.mult_x_U = zeros(problem.n)
