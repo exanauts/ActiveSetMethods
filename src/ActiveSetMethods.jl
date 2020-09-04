@@ -40,7 +40,7 @@ createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
 function solveNloptProblem(model::NloptProblem)
     if isnothing(model.parameters.external_optimizer)
     	model.status = -12;
-        @warn "`external_optimizer` parameter must be set for subproblem solutions."
+        @error "`external_optimizer` parameter must be set for subproblem solutions."
     else
         if model.parameters.method == "SLP"
             env = SLP(model)
