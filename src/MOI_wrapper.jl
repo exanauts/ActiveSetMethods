@@ -1224,7 +1224,9 @@ function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
         return MOI.OPTIMIZE_NOT_CALLED
     end
     status = ApplicationReturnStatus[model.inner.status]
-    if status == :Solve_Succeeded || status == :Feasible_Point_Found
+    if status == :Optimize_not_called
+        return MOI.OPTIMIZE_NOT_CALLED
+    elseif status == :Solve_Succeeded || status == :Feasible_Point_Found
         return MOI.LOCALLY_SOLVED
     elseif status == :Infeasible_Problem_Detected
         return MOI.LOCALLY_INFEASIBLE

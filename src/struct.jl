@@ -35,7 +35,7 @@ mutable struct NloptProblem
                           parameters)
         return new(n, m, zeros(Float64, n), x_L, x_U, zeros(Float64, m), g_L, g_U,
                    j_sparsity, h_sparsity, zeros(Float64,m), zeros(Float64,n),
-                   zeros(Float64,n), 0.0, 0, eval_f, eval_g, eval_grad_f,
+                   zeros(Float64,n), 0.0, -5, eval_f, eval_g, eval_grad_f,
                    eval_jac_g, eval_h, nothing, :Min,
                    parameters)
     end
