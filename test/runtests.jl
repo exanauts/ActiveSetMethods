@@ -16,7 +16,7 @@ end
     @test isapprox(ysol, -1.0, rtol=1e-4)
 end
 
-# @testset "opf.jl" begin
-#     include("../examples/opf.jl")
-#     run_opf("../examples/cases/case3.m")
-# end
+@testset "opf.jl" begin
+    include("../examples/acopf/opf.jl")
+    run_opf("../examples/acopf/case3.m")
+end

@@ -24,13 +24,14 @@ mutable struct SLP <: Environment
 
     options::Parameters
 
+    iter::Int
     ret::Int
 
     function SLP(problem::NloptProblem)
         slp = new()
         slp.problem = problem
         slp.x = Vector{Float64}(undef, problem.n)
-        slp.p = Vector{Float64}(undef, problem.n)
+        slp.p = zeros(problem.n)
         slp.lambda = zeros(problem.m)
         slp.mult_x_L = zeros(problem.n)
         slp.mult_x_U = zeros(problem.n)
@@ -46,6 +47,7 @@ mutable struct SLP <: Environment
 
         slp.options = problem.parameters
 
+        slp.iter = 1
         slp.ret = -5
         return slp
     end
@@ -68,7 +70,7 @@ function line_search_method(env::SLP)
         end
     end
 
-    itercnt = 1
+    env.iter = 1
 
     @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")
     while true
@@ -77,7 +79,7 @@ function line_search_method(env::SLP)
         compute_phi!(env)
 
         err = compute_normalized_Kuhn_Tucker_residuals(env)
-        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", itercnt, env.f, env.phi, env.norm_E, norm(env.df), err)
+        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, env.norm_E, norm(env.df), err)
         if err <= env.options.tol_residual && env.norm_E <= env.options.tol_infeas
             @printf("Terminated: KT residuals (%e)\n", err)
             env.ret = 0;
@@ -90,8 +92,8 @@ function line_search_method(env::SLP)
         # @show env.x
         # @show env.p
 
-        # @show env.f, env.mu, env.norm_E
         compute_mu!(env)
+        compute_phi!(env)
 
         # directional derivative of the 1-norm merit function
         compute_derivative!(env)
@@ -102,9 +104,14 @@ function line_search_method(env::SLP)
         end
 
         # step size computation
-        compute_alpha!(env)
+        is_valid_step = compute_alpha(env)
         if env.ret == -3
+            @warn "Failed to find a step size"
             break
+        end
+        if !is_valid_step && env.iter < env.options.max_iter
+            env.iter += 1
+            continue
         end
 
         # update primal points
@@ -119,11 +126,14 @@ function line_search_method(env::SLP)
         # @show env.mult_x_L
 
         # Iteration counter limit
-        if itercnt >= env.options.max_iter
+        if env.iter >= env.options.max_iter
             env.ret = -1
+            if norm_violations(env, env.x) <= env.options.tol_infeas
+                env.ret = 6
+            end
             break
         end
-        itercnt += 1
+        env.iter += 1
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
@@ -156,7 +166,7 @@ function norm_violations(
             viol[m+j] = x_L[j] - x[j]
         end
     end
-    return norm(viol, Inf)
+    return norm(viol, 1)
 end
 norm_violations(env::SLP) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
 norm_violations(env::SLP, x::Vector{Float64}) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
@@ -182,13 +192,14 @@ function compute_jacobian_matrix(env::SLP)
 end
 
 compute_normalized_Kuhn_Tucker_residuals(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(
-    env.df, env.lambda, compute_jacobian_matrix(env))
-function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
-    KT_res = norm(df - J' * lambda)
+    env.df, env.lambda, env.mult_x_U, env.mult_x_L, compute_jacobian_matrix(env))
+function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, mult_x_U::Vector{Float64}, mult_x_L::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
+    KT_res = norm(df - J' * lambda - mult_x_U - mult_x_L)
     scalar = max(1.0, norm(df))
     for i = 1:J.m
         scalar = max(scalar, abs(lambda[i]) * norm(J[i,:]))
     end
+    # @show KT_res, scalar
     return KT_res / scalar
 end
 
@@ -197,27 +208,38 @@ function compute_mu!(env::SLP)
     if env.norm_E > 0
         denom = (1 - env.options.rho) * env.norm_E
         if denom > 0
-            env.mu = max(
-                env.mu,
-                (env.df' * env.p) / denom)
+            env.mu = max(env.mu, (env.df' * env.p) / denom)
         end
+    else
+        env.mu *= 0.9
+        # @printf("* large penalty: reduce mu to %e\n", env.mu)
     end
+    # @show env.mu
 end
 
-function compute_alpha!(env::SLP)
-    phi_x_p = compute_phi(env, env.x .+ env.alpha * env.p)
+function compute_alpha(env::SLP)::Bool
+    is_valid = true
 
-    while phi_x_p > env.phi + env.options.eta * env.alpha * env.directional_derivative
+    env.alpha = 1.0
+    phi_x_p = compute_phi(env, env.x .+ env.alpha * env.p)
+    eta = env.options.eta
+
+    while phi_x_p > env.phi + eta * env.alpha * env.directional_derivative
         env.alpha *= env.options.tau
         phi_x_p = compute_phi(env, env.x + env.alpha * env.p)
-        if env.alpha <= env.options.min_alpha
-            @warn "Step size too small, D = $(env.directional_derivative), α = $(env.alpha)"
-            @show env.p, phi_x_p, env.phi, env.alpha, env.directional_derivative, env.phi + env.options.eta * env.alpha * env.directional_derivative
-            env.ret = -3
+        if env.alpha < env.options.min_alpha
+            if env.mu < env.options.max_mu
+                env.mu = min(env.options.max_mu, env.mu * 10)
+                @printf("* step size too small: increase mu to %e\n", env.mu)
+                is_valid = false
+            else
+                env.ret = -3
+            end
             break
         end
         # @show phi_x_p, env.phi, env.alpha, env.directional_derivative, env.phi + env.options.eta * env.alpha * env.directional_derivative
     end
+    return is_valid
 end
 
 # merit function

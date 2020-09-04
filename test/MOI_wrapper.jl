@@ -86,15 +86,24 @@ MOI.empty!(optimizer)
     # SLP returns the max iteration limit for these instances.
     exclude = ["qp1", "qp2"]
     MOIT.qptest(qp_optimizer, config_no_duals, exclude)
+    # MOIT.qptest(qp_optimizer, config_no_duals)
 end
 
 MOI.empty!(optimizer)
 
 @testset "MOI QCQP tests" begin
     qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
-    exclude = ["qcp1", # VectorAffineFunction not supported.
-              "qcp2", "qcp3"] # These don't converge.
+    exclude = ["qcp1"] # VectorAffineFunction not supported.
     MOIT.qcptest(qp_optimizer, config_no_duals, exclude)
+end
+
+MOI.empty!(optimizer)
+
+@testset "MOI NLP tests" begin
+    # TODO: These instances do not converge.
+    exclude = ["hs071_no_hessian", "hs071"]
+    MOIT.nlptest(optimizer, config, exclude)
+    # MOIT.nlptest(optimizer, config)
 end
 
 @testset "Testing getters" begin
@@ -105,9 +114,3 @@ end
     MOI.Test.set_lower_bound_twice(optimizer, Float64)
     MOI.Test.set_upper_bound_twice(optimizer, Float64)
 end
-
-# MOI.empty!(optimizer)
-
-# @testset "MOI NLP tests" begin
-#     MOIT.nlptest(optimizer, config)
-# end

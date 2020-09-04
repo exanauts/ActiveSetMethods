@@ -1044,7 +1044,7 @@ function MOI.optimize!(model::Optimizer)
 
     MOI.initialize(evaluator, init_feat)
     jacobian_sparsity = jacobian_structure(model)
-    hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : []
+    hessian_sparsity = has_hessian ? hessian_lagrangian_structure(model) : Tuple{Int,Int}[]
 
     if model.sense == MOI.MIN_SENSE
         objective_scale = 1.0
