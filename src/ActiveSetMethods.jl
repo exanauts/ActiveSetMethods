@@ -43,16 +43,16 @@ normdCx = Array{Float64,1}()
 
 "Creates the ActiveSetMethods Problem"
 createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
-    m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, j_sparsity::Array{Tuple{Int64,Int64}},
-    h_sparsity::Array{Tuple{Int64,Int64}}, 
+    m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, 
+    j_sparsity::Array{Tuple{Int64,Int64}}, h_sparsity::Array{Tuple{Int64,Int64}}, 
     eval_f::Function, eval_g::Function, eval_grad_f::Function, eval_jac_g::Function, eval_h, 
     parameters::Parameters) = NloptProblem(
         n, x_L, x_U, m, g_L, g_U, j_sparsity, h_sparsity,
         eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h, parameters)
 
 createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
-    m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, j_sparsity::Array{Tuple{Int64,Int64}},
-    h_sparsity::Array{Tuple{Int64,Int64}}, 
+    m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, 
+    j_sparsity::Array{Tuple{Int64,Int64}}, h_sparsity::Array{Tuple{Int64,Int64}}, 
     eval_f::Function, eval_g::Function, eval_grad_f::Function, eval_jac_g::Function,
     parameters::Parameters) = createNloptProblem(
         n, x_L, x_U, m, g_L, g_U, 
