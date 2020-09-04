@@ -159,12 +159,12 @@ function solve_lp(
 		# extract the multipliers to column bounds
 		mult_x_U = MOI.get(model, MOI.ConstraintDual(1), constr_x_U)
 		mult_x_L = MOI.get(model, MOI.ConstraintDual(1), constr_x_L)
-		# TODO: careful because of the trust region
+		# careful because of the trust region
 		for j=1:n
-			if Xsol[j] == Δ
+			if Xsol[j] < x_U[j] - x_k[j]
 				mult_x_U[j] = 0.0
 			end
-			if Xsol[j] == -Δ
+			if Xsol[j] > x_L[j] - x_k[j]
 				mult_x_L[j] = 0.0
 			end
 		end
