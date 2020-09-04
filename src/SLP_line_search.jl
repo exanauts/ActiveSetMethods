@@ -182,13 +182,14 @@ function compute_jacobian_matrix(env::SLP)
 end
 
 compute_normalized_Kuhn_Tucker_residuals(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(
-    env.df, env.lambda, compute_jacobian_matrix(env))
-function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
-    KT_res = norm(df - J' * lambda)
+    env.df, env.lambda, env.mult_x_U, env.mult_x_L, compute_jacobian_matrix(env))
+function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, mult_x_U::Vector{Float64}, mult_x_L::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
+    KT_res = norm(df - J' * lambda - mult_x_U - mult_x_L)
     scalar = max(1.0, norm(df))
     for i = 1:J.m
         scalar = max(scalar, abs(lambda[i]) * norm(J[i,:]))
     end
+    # @show KT_res, scalar
     return KT_res / scalar
 end
 
