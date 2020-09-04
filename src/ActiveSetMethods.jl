@@ -18,29 +18,6 @@ export solveNloptProblem
 export NloptProblem
 
 
-#TODO Delete these variables
-
-export fx, normEx, Phix, mux, alphax, mu_numerator, mu_RHS, Dx, px, alphapx
-export lamx, errx, normDfx, normLamx, normdCx
-export plot_error_components
-
-fx = Array{Float64,1}()
-normEx = Array{Float64,1}()
-Phix = Array{Float64,1}()
-mux = Array{Float64,1}()
-alphax = Array{Float64,1}()
-mu_numerator = Array{Float64,1}()
-mu_RHS = Array{Float64,1}()
-Dx = Array{Float64,1}()
-px = Array{Float64,1}()
-alphapx = Array{Float64,1}()
-lamx= Array{Float64,1}()
-errx = Array{Float64,1}()
-normDfx = Array{Float64,1}()
-normLamx = Array{Float64,1}()
-normdCx = Array{Float64,1}()
-
-
 "Creates the ActiveSetMethods Problem"
 createNloptProblem(n::Int, x_L::Vector{Float64}, x_U::Vector{Float64},
     m::Int, g_L::Vector{Float64}, g_U::Vector{Float64}, 
