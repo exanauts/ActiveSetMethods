@@ -92,8 +92,8 @@ function line_search_method(env::SLP)
         # @show env.x
         # @show env.p
 
-        # @show env.f, env.mu, env.norm_E
         compute_mu!(env)
+        compute_phi!(env)
 
         # directional derivative of the 1-norm merit function
         compute_derivative!(env)
@@ -104,9 +104,14 @@ function line_search_method(env::SLP)
         end
 
         # step size computation
-        compute_alpha!(env)
+        is_valid_step = compute_alpha(env)
         if env.ret == -3
+            @warn "Failed to find a step size"
             break
+        end
+        if !is_valid_step && env.iter < env.options.max_iter
+            env.iter += 1
+            continue
         end
 
         # update primal points
@@ -200,27 +205,35 @@ function compute_mu!(env::SLP)
     if env.norm_E > 0
         denom = (1 - env.options.rho) * env.norm_E
         if denom > 0
-            env.mu = max(
-                env.mu,
-                (env.df' * env.p) / denom)
+            env.mu = max(env.mu, (env.df' * env.p) / denom)
         end
     end
+    # @show env.mu
 end
 
-function compute_alpha!(env::SLP)
-    phi_x_p = compute_phi(env, env.x .+ env.alpha * env.p)
+function compute_alpha(env::SLP)::Bool
+    is_valid = true
 
-    while phi_x_p > env.phi + env.options.eta * env.alpha * env.directional_derivative
+    env.alpha = 1.0
+    phi_x_p = compute_phi(env, env.x .+ env.alpha * env.p)
+    eta = env.options.eta
+
+    while phi_x_p > env.phi + eta * env.alpha * env.directional_derivative
         env.alpha *= env.options.tau
         phi_x_p = compute_phi(env, env.x + env.alpha * env.p)
-        if env.alpha <= env.options.min_alpha
-            @warn "Step size too small, D = $(env.directional_derivative), α = $(env.alpha)"
-            @show env.p, phi_x_p, env.phi, env.alpha, env.directional_derivative, env.phi + env.options.eta * env.alpha * env.directional_derivative
-            env.ret = -3
+        if env.alpha < env.options.min_alpha
+            if env.mu < env.options.max_mu
+                env.mu = min(env.options.max_mu, env.mu * 10)
+                @printf("* step size too small: increase mu to %e\n", env.mu)
+                is_valid = false
+            else
+                env.ret = -3
+            end
             break
         end
         # @show phi_x_p, env.phi, env.alpha, env.directional_derivative, env.phi + env.options.eta * env.alpha * env.directional_derivative
     end
+    return is_valid
 end
 
 # merit function
