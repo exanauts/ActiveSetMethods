@@ -24,12 +24,13 @@ This problem can be solved by the following code snippet:
 ```julia
 # Load packages
 using ActiveSetMethods, JuMP
+using GLPK # can be any LP solver
 
 # Number of variables
 n = 1
 
 # Build nonlinear problem model via JuMP
-model = Model(with_optimizer(ActiveSetMethods.Optimizer))
+model = Model(optimizer_with_attributes(ActiveSetMethods.Optimizer, "external_optimizer" => GLPK.Optimizer()))
 @variable(model, x)
 @objective(model, Min, x^2 + x)
 @NLconstraint(model, x^2 - x == 2)

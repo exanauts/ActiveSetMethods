@@ -34,9 +34,12 @@ function solve_lp(
 	constraint_ub::Vector{Float64},
 	mu::Float64,
 	x_k::Vector{Float64},
-	Δ::Float64)
+	Δ::Float64,
+	model::MOI.AbstractOptimizer)
 
-	model = Options_["LP_solver"]()
+	# empty optimizer just in case
+	MOI.empty!(model)
+
 	n = A.n;
 	m = A.m;
 	@assert n > 0
@@ -128,11 +131,7 @@ function solve_lp(
 	end
 
 	MOI.optimize!(model);
-	status = MOI.get(model, MOI.TerminationStatus());
-	if Options_["mode"] == "Debug"
-		print(model);
-		println("Status: ", status);
-	end
+	status = MOI.get(model, MOI.TerminationStatus())
 
 	Xsol = zeros(n);
 	lambda = zeros(m)
@@ -160,23 +159,14 @@ function solve_lp(
 		# extract the multipliers to column bounds
 		mult_x_U = MOI.get(model, MOI.ConstraintDual(1), constr_x_U)
 		mult_x_L = MOI.get(model, MOI.ConstraintDual(1), constr_x_L)
-		# TODO: careful because of the trust region
+		# careful because of the trust region
 		for j=1:n
-			if Xsol[j] == Δ
-				multi_x_U[j] = 0.0
+			if Xsol[j] < x_U[j] - x_k[j]
+				mult_x_U[j] = 0.0
 			end
-			if Xsol[j] == -Δ
-				multi_x_L[j] = 0.0
+			if Xsol[j] > x_L[j] - x_k[j]
+				mult_x_L[j] = 0.0
 			end
-		end
-
-		if Options_["mode"] == "Debug"
-			println("Xsol: ", Xsol);
-			if m > 0
-				println("Usol: ", Usol);
-				println("Vsol: ", Vsol);
-			end
-			println("Dual Constraints constr: ", MOI.get(model, MOI.ConstraintDual(1), constr))
 		end
 	elseif status == MOI.DUAL_INFEASIBLE
 		@error "Trust region must be employed."
@@ -197,4 +187,5 @@ solve_lp(env::SLP, Δ) = solve_lp(
 	env.problem.g_U,
 	env.mu,
 	env.x,
-	Δ)
+	Δ,
+	env.options.external_optimizer)
