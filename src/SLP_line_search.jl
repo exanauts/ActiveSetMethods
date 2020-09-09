@@ -73,11 +73,16 @@ function line_search_method(env::SLP)
     env.iter = 1
 
     @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")
-    while true
-        eval_functions!(env)
-        norm_violations!(env)
-        compute_phi!(env)
 
+    eval_functions!(env)
+    norm_violations!(env)
+    compute_phi!(env)
+
+    # solve LP subproblem (to initialize dual multipliers)
+    p, env.lambda, env.mult_x_U, env.mult_x_L, status = solve_lp(env, Δ)
+    # @show env.lambda
+
+    while true
         err = compute_normalized_Kuhn_Tucker_residuals(env)
         @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, env.norm_E, norm(env.df), err)
         if err <= env.options.tol_residual && env.norm_E <= env.options.tol_infeas
@@ -89,8 +94,6 @@ function line_search_method(env::SLP)
         # solve LP subproblem
         env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
         @assert length(env.lambda) == length(lambda)
-        # @show env.x
-        # @show env.p
 
         compute_mu!(env)
         compute_phi!(env)
@@ -134,6 +137,10 @@ function line_search_method(env::SLP)
             break
         end
         env.iter += 1
+
+        eval_functions!(env)
+        norm_violations!(env)
+        compute_phi!(env)
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
