@@ -72,31 +72,33 @@ function line_search_method(env::SLP)
 
     env.iter = 1
 
-    @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|E(x_k)|", "|∇f|", "KT resid.")
-
-    eval_functions!(env)
-    norm_violations!(env)
-    compute_phi!(env)
-
-    # solve LP subproblem (to initialize dual multipliers)
-    p, env.lambda, env.mult_x_U, env.mult_x_L, status = solve_lp(env, Δ)
-    # @show env.lambda
-
+    @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "prim infeas", "dual infeas")
     while true
-        err = compute_normalized_Kuhn_Tucker_residuals(env)
-        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, env.norm_E, norm(env.df), err)
-        if err <= env.options.tol_residual && env.norm_E <= env.options.tol_infeas
-            @printf("Terminated: KT residuals (%e)\n", err)
+
+        eval_functions!(env)
+        norm_violations!(env)
+    
+        # solve LP subproblem (to initialize dual multipliers)
+        env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
+        # @show env.lambda
+    
+        compute_mu!(env)
+        compute_phi!(env)
+
+        if env.iter == 1
+            env.lambda .= lambda
+            env.mult_x_U .= mult_x_U
+            env.mult_x_L .= mult_x_L
+        end
+
+        prim_infeas = normalized_primal_infeasibility(env)
+        dual_infeas = normalized_dual_infeasibility(env)
+        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, norm(env.df), prim_infeas, dual_infeas)
+        if dual_infeas <= env.options.tol_residual && prim_infeas <= env.options.tol_infeas
+            @printf("Terminated due to tolerance: primal (%e), dual (%e)\n", prim_infeas, dual_infeas)
             env.ret = 0;
             break
         end
-
-        # solve LP subproblem
-        env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
-        @assert length(env.lambda) == length(lambda)
-
-        compute_mu!(env)
-        compute_phi!(env)
 
         # directional derivative of the 1-norm merit function
         compute_derivative!(env)
@@ -116,6 +118,7 @@ function line_search_method(env::SLP)
             env.iter += 1
             continue
         end
+        @show env.alpha
 
         # update primal points
         env.x += env.alpha .* env.p
@@ -137,10 +140,6 @@ function line_search_method(env::SLP)
             break
         end
         env.iter += 1
-
-        eval_functions!(env)
-        norm_violations!(env)
-        compute_phi!(env)
     end
 
     env.problem.obj_val = env.problem.eval_f(env.x)
@@ -154,7 +153,8 @@ end
 
 function norm_violations(
     E::Vector{Float64}, g_L::Vector{Float64}, g_U::Vector{Float64},
-    x::Vector{Float64}, x_L::Vector{Float64}, x_U::Vector{Float64})
+    x::Vector{Float64}, x_L::Vector{Float64}, x_U::Vector{Float64},
+    p = 1)
 
     m = length(E)
     n = length(x)
@@ -173,10 +173,10 @@ function norm_violations(
             viol[m+j] = x_L[j] - x[j]
         end
     end
-    return norm(viol, 1)
+    return norm(viol, p)
 end
-norm_violations(env::SLP) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
-norm_violations(env::SLP, x::Vector{Float64}) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
+norm_violations(env::SLP, p = 1) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U, p)
+norm_violations(env::SLP, x::Vector{Float64}, p = 1) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U, p)
 function norm_violations!(env::SLP)
     env.norm_E = norm_violations(env)
 end
@@ -198,6 +198,12 @@ function compute_jacobian_matrix(env::SLP)
     return J
 end
 
+"""
+Normalized primal/dual infeasibilities
+"""
+normalized_primal_infeasibility(env::SLP) = norm_violations(env, Inf) / norm(env.dE, Inf)
+normalized_dual_infeasibility(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(env)
+
 compute_normalized_Kuhn_Tucker_residuals(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(
     env.df, env.lambda, env.mult_x_U, env.mult_x_L, compute_jacobian_matrix(env))
 function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, mult_x_U::Vector{Float64}, mult_x_L::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
@@ -215,11 +221,9 @@ function compute_mu!(env::SLP)
     if env.norm_E > 0
         denom = (1 - env.options.rho) * env.norm_E
         if denom > 0
+            # @show denom, norm(env.p), env.df' * env.p
             env.mu = max(env.mu, (env.df' * env.p) / denom)
         end
-    else
-        env.mu *= 0.9
-        # @printf("* large penalty: reduce mu to %e\n", env.mu)
     end
     # @show env.mu
 end
