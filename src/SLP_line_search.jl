@@ -236,18 +236,22 @@ function compute_alpha(env::SLP)::Bool
     eta = env.options.eta
 
     while phi_x_p > env.phi + eta * env.alpha * env.directional_derivative
-        env.alpha *= env.options.tau
-        phi_x_p = compute_phi(env, env.x + env.alpha * env.p)
         if env.alpha < env.options.min_alpha
             if env.mu < env.options.max_mu
                 env.mu = min(env.options.max_mu, env.mu * 10)
                 @printf("* step size too small: increase mu to %e\n", env.mu)
                 is_valid = false
+            elseif eta > 1.e-6
+                eta *= 0.5
+                @printf("* step size too small: decrease eta to %e\n", eta)
+                continue
             else
                 env.ret = -3
             end
             break
         end
+        env.alpha *= env.options.tau
+        phi_x_p = compute_phi(env, env.x + env.alpha * env.p)
         # @show phi_x_p, env.phi, env.alpha, env.directional_derivative, env.phi + env.options.eta * env.alpha * env.directional_derivative
     end
     return is_valid
