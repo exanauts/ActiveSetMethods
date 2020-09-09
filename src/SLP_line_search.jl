@@ -118,7 +118,7 @@ function line_search_method(env::SLP)
             env.iter += 1
             continue
         end
-        @show env.alpha
+        # @show env.alpha
 
         # update primal points
         env.x += env.alpha .* env.p
