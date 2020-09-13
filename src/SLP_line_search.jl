@@ -175,7 +175,6 @@ function norm_violations!(env::SLP)
 end
 
 function eval_functions!(env::SLP)
-    # TODO: creating zero vectors everytime may not be efficient.
     env.f = env.problem.eval_f(env.x)
     env.problem.eval_grad_f(env.x, env.df)
     env.problem.eval_g(env.x, env.E)
