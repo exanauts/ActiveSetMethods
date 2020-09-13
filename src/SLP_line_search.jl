@@ -177,9 +177,9 @@ end
 function eval_functions!(env::SLP)
     # TODO: creating zero vectors everytime may not be efficient.
     env.f = env.problem.eval_f(env.x)
-    env.df .= env.problem.eval_grad_f(env.x, zeros(env.problem.n))
-    env.E .= env.problem.eval_g(env.x, zeros(env.problem.m))
-    env.dE .= env.problem.eval_jac_g(env.x, :opt, [], [], zeros(length(env.problem.j_str)))
+    env.problem.eval_grad_f(env.x, env.df)
+    env.problem.eval_g(env.x, env.E)
+    env.problem.eval_jac_g(env.x, :opt, [], [], env.dE)
     # @show env.f, env.df, env.E, env.dE
 end
 
