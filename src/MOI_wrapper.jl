@@ -20,7 +20,7 @@ end
 ConstraintInfo(func, set) = ConstraintInfo(func, set, nothing)
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
-    inner::Union{NloptProblem,Nothing}
+    inner::Union{ASMProblem,Nothing}
 
     # Problem data.
     variable_info::Vector{VariableInfo}
@@ -1113,7 +1113,7 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-------->constraint_ub: ", constraint_ub);
     #println(" ---- Optimize! Parameters End");
 
-    model.inner = createNloptProblem(
+    model.inner = createASMProblem(
         num_variables, x_l, x_u, 
         num_constraints, constraint_lb, constraint_ub, 
         jacobian_sparsity, hessian_sparsity,
@@ -1192,7 +1192,7 @@ function MOI.optimize!(model::Optimizer)
     #println("##########-----********--->before solve model.innern: ", model.inner);
 
     #solveProblem(model)
-    solveNloptProblem(model.inner)
+    solveASMProblem(model.inner)
 
     #println("##########-----********--->after solve model.innern: ", model.inner);
 

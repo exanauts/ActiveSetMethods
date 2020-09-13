@@ -3,7 +3,7 @@ using Printf
 abstract type Environment end
 
 mutable struct SLP <: Environment
-    problem::NloptProblem
+    problem::ASMProblem
 
     x::Vector{Float64}
     p::Vector{Float64}
@@ -27,7 +27,7 @@ mutable struct SLP <: Environment
     iter::Int
     ret::Int
 
-    function SLP(problem::NloptProblem)
+    function SLP(problem::ASMProblem)
         slp = new()
         slp.problem = problem
         slp.x = Vector{Float64}(undef, problem.n)

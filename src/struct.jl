@@ -1,4 +1,4 @@
-mutable struct NloptProblem
+mutable struct ASMProblem
     #ef::Ptr{Cvoid}  # Reference to the internal data structure
     n::Int  # Num vars
     m::Int  # Num cons
@@ -30,7 +30,7 @@ mutable struct NloptProblem
 
     parameters::Parameters
 
-    function NloptProblem(n, x_L, x_U, m, g_L, g_U, j_sparsity, h_sparsity,
+    function ASMProblem(n, x_L, x_U, m, g_L, g_U, j_sparsity, h_sparsity,
                           eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h,
                           parameters)
         return new(n, m, zeros(Float64, n), x_L, x_U, zeros(Float64, m), g_L, g_U,
