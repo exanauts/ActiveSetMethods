@@ -1106,7 +1106,7 @@ function MOI.optimize!(model::Optimizer)
     ###addOption(model.inner, "check_derivatives_for_naninf", "yes")
 
     if !has_hessian
-   	set_parameter(model.options, "hessian_approximation", "limited-memory")
+   	set_parameter(model.options, "hessian_type", "none")
     end
 
     # If nothing is provided, the default starting value is 0.0.
