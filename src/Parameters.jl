@@ -5,6 +5,9 @@ Base.@kwdef mutable struct Parameters
 
     # Defines the external solver for suproblems
     external_optimizer::Union{Nothing,MOI.AbstractOptimizer} = nothing
+    
+    # Whether to use approximation hessian (limited-memory), exact, or none
+    hessian_type::String = "none"
 
     # Algorithmic parameters
     tol_residual::Float64 = 1.e-6 # tolerance for Kuhn-Tucker residual

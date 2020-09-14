@@ -20,7 +20,7 @@ end
 ConstraintInfo(func, set) = ConstraintInfo(func, set, nothing)
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
-    inner::Union{NloptProblem,Nothing}
+    inner::Union{ASMProblem,Nothing}
 
     # Problem data.
     variable_info::Vector{VariableInfo}
@@ -872,11 +872,7 @@ macro eval_function(array_name)
 end
 
 
-#function eval_constraint(model::IpoptProblem, g, x)
 function eval_constraint(model::Optimizer, g, x)
-    #println("-----######------>eval_constraint(g): ", g);
-    #println("-----######------>eval_constraint(x): ", x);
-    #println("-----######------>eval_constraint1(model): ", model);
     row = 1
     @eval_function model.linear_le_constraints
     @eval_function model.linear_ge_constraints
@@ -884,17 +880,9 @@ function eval_constraint(model::Optimizer, g, x)
     @eval_function model.quadratic_le_constraints
     @eval_function model.quadratic_ge_constraints
     @eval_function model.quadratic_eq_constraints
-    #println("-----######------>eval_constraint2(model): ", model);
-    
     nlp_g = view(g, row:length(g))
-    #println("-----######------>eval_constraint(row): ", row);
-    #println("-----######------>eval_constraint(g): ", g);
-    #println("-----######------>eval_constraint(nlp_g): ", nlp_g);
-
     # This does nothing.
     MOI.eval_constraint(model.nlp_data.evaluator, nlp_g, x)
-    #println("-----######------>eval_constraint3(model): ", model);
-    #println("-----######------>eval_constraint(g): ", g);
     return g
 end
 
@@ -1080,10 +1068,6 @@ function MOI.optimize!(model::Optimizer)
         end
     end
 
-    # function eval_jac_g_cb(x, values)
-    #     eval_constraint_jacobian(model, values, x)
-    # end
-
     if has_hessian
         # Hessian callback
         function eval_h_cb(x, mode, rows, cols, obj_factor,
@@ -1107,19 +1091,12 @@ function MOI.optimize!(model::Optimizer)
 
     constraint_lb, constraint_ub = constraint_bounds(model)
 
-    #println("##########-------->x_l: ", x_l);
-    #println("##########-------->x_u: ", x_u);
-    #println("##########-------->constraint_lb: ", constraint_lb);
-    #println("##########-------->constraint_ub: ", constraint_ub);
-    #println(" ---- Optimize! Parameters End");
-
-    model.inner = createNloptProblem(
+    model.inner = createASMProblem(
         num_variables, x_l, x_u, 
         num_constraints, constraint_lb, constraint_ub, 
         jacobian_sparsity, hessian_sparsity,
         eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb, eval_h_cb,
         model.options)
-    #println("##########-----********--->created model.innern: ", model.inner);
 
     # Ipopt crashes by default if NaN/Inf values are returned from the
     # evaluation callbacks. This option tells Ipopt to explicitly check for them
@@ -1129,18 +1106,7 @@ function MOI.optimize!(model::Optimizer)
     ###addOption(model.inner, "check_derivatives_for_naninf", "yes")
 
     if !has_hessian
-        ###addOption(model.inner, "hessian_approximation", "limited-memory")
-    end
-    if num_nlp_constraints == 0 && num_quadratic_constraints == 0
-        ###addOption(model.inner, "jac_c_constant", "yes")
-        ###addOption(model.inner, "jac_d_constant", "yes")
-        if !model.nlp_data.has_objective
-            # We turn on this option if all constraints are linear and the
-            # objective is linear or quadratic. From the documentation, it's
-            # unclear if it may also apply if the constraints are at most
-            # quadratic.
-            ###addOption(model.inner, "hessian_constant", "yes")
-        end
+   	set_parameter(model.options, "hessian_type", "none")
     end
 
     # If nothing is provided, the default starting value is 0.0.
@@ -1183,39 +1149,9 @@ function MOI.optimize!(model::Optimizer)
     model.inner.mult_x_U = [v.upper_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
                             for v in model.variable_info]
 
-    model.silent && addOption(model.inner, "print_level", 0)
-
-    #=for (name, value) in model.options
-        addOption(model.inner, name, value)
-    end=#
-
-    #println("##########-----********--->before solve model.innern: ", model.inner);
-
-    #solveProblem(model)
-    solveNloptProblem(model.inner)
-
-    #println("##########-----********--->after solve model.innern: ", model.inner);
+    solveASMProblem(model.inner)
 
     model.solve_time = time() - start_time
-
-    # println("Optimize! final begin .....");
-    # println("##########-------->inner: ", model.inner);
-    # println("##########-------->variable_info: ", model.variable_info);
-    # println("##########-------->nlp_data: ", model.nlp_data);
-    # println("##########-------->sense: ", model.sense);
-    # println("##########-------->objective: ", model.objective);
-    # println("##########-------->linear_le_constraints: ", model.linear_le_constraints);
-    # println("##########-------->linear_ge_constraints: ", model.linear_ge_constraints);
-    # println("##########-------->linear_eq_constraints: ",  model.linear_eq_constraints);
-    # println("##########-------->quadratic_le_constraints: ", model.quadratic_le_constraints);
-    # println("##########-------->quadratic_ge_constraints: ", model.quadratic_ge_constraints);
-    # println("##########-------->quadratic_eq_constraints: ", model.quadratic_eq_constraints);
-    # println("##########-------->nlp_dual_start: ", model.nlp_dual_start);
-    # println("##########-------->silent: ", model.silent);
-    # println("##########-------->options: ", model.options);
-    # println("##########-------->solve_time: ", model.solve_time);
-    # println("..... Optimize! final End");
-
     return
 end
 
