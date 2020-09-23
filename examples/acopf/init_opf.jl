@@ -1,51 +1,17 @@
 """
-Initialize variable values for ACPPowerModel by taking the mean of lower and upper bounds.
+Initialize variable values by taking the mean of lower and upper bounds.
 """
-function init_vars(pm::ACPPowerModel)
+function init_vars(pm::AbstractPowerModel)
     init_branch_vars(pm)
     init_dc_vars(pm)
     init_gen_vars(pm)
-    init_voltage_vars(pm)
-end
-
-"""
-Initialize variable values for ACRPowerModel by taking the mean of lower and upper bounds.
-"""
-function init_vars(pm::ACRPowerModel)
-    init_branch_vars(pm)
-    init_dc_vars(pm)
-    init_gen_vars(pm)
-    init_voltage_vars(pm)
-end
-
-"""
-Initialize variable values for IVRPowerModel by taking the mean of lower and upper bounds.
-"""
-function init_vars(pm::IVRPowerModel)
-    # init_branch_vars(pm)
-    # init_dc_vars(pm)
-    # init_gen_vars(pm)
-    # The above are expressions.
-
-    # TODO: crg, cig, csr, csi, cr, ci, crdc, cidc
     init_voltage_vars(pm)
 end
 
 """
 Initialize variable values for ACPPowerModel from Ipopt solution.
 """
-function init_vars_from_ipopt(pm::ACPPowerModel, pm2::ACPPowerModel)
-    optimize_model!(pm2, optimizer = Ipopt.Optimizer)
-    init_branch_vars(pm, pm2)
-    init_dc_vars(pm, pm2)
-    init_gen_vars(pm, pm2)
-    init_voltage_vars(pm, pm2)
-end
-
-"""
-Initialize variable values for ACRPowerModel from Ipopt solution.
-"""
-function init_vars_from_ipopt(pm::ACRPowerModel, pm2::ACRPowerModel)
+function init_vars_from_ipopt(pm::T, pm2::T) where T<:AbstractPowerModel
     optimize_model!(pm2, optimizer = Ipopt.Optimizer)
     init_branch_vars(pm, pm2)
     init_dc_vars(pm, pm2)
@@ -80,6 +46,28 @@ function init_branch_vars(pm::AbstractPowerModel, pm_solved::AbstractPowerModel)
     end
 end
 
+function init_branch_vars(pm::IVRPowerModel)
+    for (l,i,j) in ref(pm,:arcs)
+        set_start_value(var(pm,:cr)[(l,i,j)])
+        set_start_value(var(pm,:ci)[(l,i,j)])
+    end
+    for l in ids(pm,:branch)
+        set_start_value(var(pm,:csr)[l])
+        set_start_value(var(pm,:csi)[l])
+    end
+end
+
+function init_branch_vars(pm::IVRPowerModel, pm_solved::IVRPowerModel)
+    for (l,i,j) in ref(pm,:arcs)
+        JuMP.set_start_value(var(pm,:cr)[(l,i,j)], JuMP.value(var(pm_solved,:cr)[(l,i,j)]))
+        JuMP.set_start_value(var(pm,:ci)[(l,i,j)], JuMP.value(var(pm_solved,:ci)[(l,i,j)]))
+    end
+    for l in ids(pm,:branch)
+        JuMP.set_start_value(var(pm,:csr)[l], JuMP.value(var(pm_solved,:csr)[l]))
+        JuMP.set_start_value(var(pm,:csi)[l], JuMP.value(var(pm_solved,:csi)[l]))
+    end
+end
+
 """
 Initilize direct current branch variable values
 """
@@ -98,6 +86,20 @@ function init_dc_vars(pm::AbstractPowerModel, pm_solved::AbstractPowerModel)
     end
 end
 
+function init_dc_vars(pm::IVRPowerModel)
+    for arc in ref(pm,:arcs_dc)
+        set_start_value(var(pm,:crdc)[arc])
+        set_start_value(var(pm,:cidc)[arc])
+    end
+end
+
+function init_dc_vars(pm::IVRPowerModel, pm_solved::IVRPowerModel)
+    for arc in ref(pm,:arcs_dc)
+        JuMP.set_start_value(var(pm,:crdc)[arc], JuMP.value(var(pm_solved,:crdc)[arc]))
+        JuMP.set_start_value(var(pm,:crdc)[arc], JuMP.value(var(pm_solved,:crdc)[arc]))
+    end
+end
+
 """
 Initilize generation variable values
 """
@@ -113,6 +115,20 @@ function init_gen_vars(pm::AbstractPowerModel, pm_solved::AbstractPowerModel)
     for (i,gen) in ref(pm,:gen)
         JuMP.set_start_value(var(pm,:pg)[i], JuMP.value(var(pm_solved,:pg)[i]))
         JuMP.set_start_value(var(pm,:qg)[i], JuMP.value(var(pm_solved,:qg)[i]))
+    end
+end
+
+function init_gen_vars(pm::IVRPowerModel)
+    for (i,gen) in ref(pm,:gen)
+        set_start_value(var(pm,:crg)[i])
+        set_start_value(var(pm,:cig)[i])
+    end
+end
+
+function init_gen_vars(pm::IVRPowerModel, pm_solved::IVRPowerModel)
+    for (i,gen) in ref(pm,:gen)
+        JuMP.set_start_value(var(pm,:crg)[i], JuMP.value(var(pm_solved,:crg)[i]))
+        JuMP.set_start_value(var(pm,:crg)[i], JuMP.value(var(pm_solved,:crg)[i]))
     end
 end
 
