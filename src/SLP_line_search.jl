@@ -72,7 +72,7 @@ function line_search_method(env::SLP)
 
     env.iter = 1
 
-    @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "prim infeas", "dual infeas")
+    @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "inf_pr", "inf_du")
     while true
 
         eval_functions!(env)
