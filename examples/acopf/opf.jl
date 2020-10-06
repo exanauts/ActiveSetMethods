@@ -1,5 +1,5 @@
 using ActiveSetMethods
-using PowerModels, JuMP, GLPK, Ipopt
+using PowerModels, JuMP, GLPK
 
 build_acp(data_file::String) = instantiate_model(PowerModels.parse_file(data_file), ACPPowerModel, PowerModels.build_opf)
 build_acr(data_file::String) = instantiate_model(PowerModels.parse_file(data_file), ACRPowerModel, PowerModels.build_opf)
