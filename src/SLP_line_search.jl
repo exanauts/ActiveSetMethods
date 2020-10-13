@@ -72,7 +72,7 @@ function line_search_method(env::SLP)
 
     env.iter = 1
 
-    @printf("%6s  %15s  %15s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "inf_pr", "inf_du")
+    @printf("%6s  %15s  %15s  %14s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "inf_pr", "inf_du", "Sparsity")
     while true
 
         eval_functions!(env)
@@ -93,7 +93,9 @@ function line_search_method(env::SLP)
 
         prim_infeas = normalized_primal_infeasibility(env)
         dual_infeas = normalized_dual_infeasibility(env)
-        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, norm(env.df), prim_infeas, dual_infeas)
+        Jac_matrix = compute_jacobian_matrix(env);
+        sparsity_val = nnz(Jac_matrix)/length(Jac_matrix);
+        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, norm(env.df), prim_infeas, dual_infeas, sparsity_val)
         if dual_infeas <= env.options.tol_residual && prim_infeas <= env.options.tol_infeas
             @printf("Terminated due to tolerance: primal (%e), dual (%e)\n", prim_infeas, dual_infeas)
             env.ret = 0;
