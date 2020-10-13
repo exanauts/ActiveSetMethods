@@ -47,6 +47,9 @@ function solveASMProblem(model::ASMProblem)
             if model.parameters.algorithm == "Line Search"
                 line_search_method(env);
             end
+            if model.parameters.algorithm == "Trust Region"
+                trust_region_method(env);
+            end
         else
             @error "The method is not defined"
         end
