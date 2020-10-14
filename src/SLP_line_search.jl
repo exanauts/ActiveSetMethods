@@ -17,9 +17,12 @@ mutable struct SLP <: Environment
     dE::Vector{Float64}
     phi::Float64
     directional_derivative::Float64
+    Δ::Float64
 
-    norm_E::Float64 # norm of constraint violations
+    norm_vio::Float64 # norm of constraint violations
+    vio::Vector{Float64}  # constraint violations
     mu::Float64
+    nu::Vector{Float64}
     alpha::Float64
 
     options::Parameters
@@ -39,9 +42,12 @@ mutable struct SLP <: Environment
         slp.E = Vector{Float64}(undef, problem.m)
         slp.dE = Vector{Float64}(undef, length(problem.j_str))
         slp.phi = Inf
+        slp.Δ = problem.parameters.tr_size
 
-        slp.norm_E = 0.0
+        slp.norm_vio = 0.0
+        slp.vio = Vector{Float64}(undef, problem.n + problem.m)
         slp.mu = problem.parameters.mu
+        slp.nu = Vector{Float64}(undef, problem.n + problem.m)
         @assert slp.mu > 0
         slp.alpha = 1.0
 
@@ -55,7 +61,7 @@ end
 
 function line_search_method(env::SLP)
 
-    Δ = env.options.tr_size
+    #Δ = env.options.tr_size
 
     # Set initial point from MOI
     @assert length(env.x) == length(env.problem.x)
@@ -76,10 +82,10 @@ function line_search_method(env::SLP)
     while true
 
         eval_functions!(env)
-        norm_violations!(env)
+        eval_violations!(env)
     
         # solve LP subproblem (to initialize dual multipliers)
-        env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
+        env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env)
         # @show env.lambda
     
         compute_mu!(env)
@@ -136,7 +142,7 @@ function line_search_method(env::SLP)
         # Iteration counter limit
         if env.iter >= env.options.max_iter
             env.ret = -1
-            if norm_violations(env, env.x) <= env.options.tol_infeas
+            if norm(eval_violations(env, env.x),1) <= env.options.tol_infeas
                 env.ret = 6
             end
             break
@@ -153,10 +159,9 @@ function line_search_method(env::SLP)
     env.problem.mult_x_L = env.mult_x_L
 end
 
-function norm_violations(
+function eval_violations(
     E::Vector{Float64}, g_L::Vector{Float64}, g_U::Vector{Float64},
-    x::Vector{Float64}, x_L::Vector{Float64}, x_U::Vector{Float64},
-    p = 1)
+    x::Vector{Float64}, x_L::Vector{Float64}, x_U::Vector{Float64})
 
     m = length(E)
     n = length(x)
@@ -175,12 +180,13 @@ function norm_violations(
             viol[m+j] = x_L[j] - x[j]
         end
     end
-    return norm(viol, p)
+    return viol
 end
-norm_violations(env::SLP, p = 1) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U, p)
-norm_violations(env::SLP, x::Vector{Float64}, p = 1) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U, p)
-function norm_violations!(env::SLP)
-    env.norm_E = norm_violations(env)
+eval_violations(env::SLP) = eval_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
+eval_violations(env::SLP, x::Vector{Float64}) = eval_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U)
+function eval_violations!(env::SLP, p = 1)
+    env.vio = eval_violations(env)
+    env.norm_vio = norm(env.vio, p)
 end
 
 function eval_functions!(env::SLP)
@@ -202,7 +208,7 @@ end
 """
 Normalized primal/dual infeasibilities
 """
-normalized_primal_infeasibility(env::SLP) = norm_violations(env, Inf) / norm(env.dE, Inf)
+normalized_primal_infeasibility(env::SLP) = norm(eval_violations(env), Inf) / norm(env.dE, Inf)
 normalized_dual_infeasibility(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(env)
 
 compute_normalized_Kuhn_Tucker_residuals(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(
@@ -219,8 +225,8 @@ end
 
 function compute_mu!(env::SLP)
     # Update mu only for positive violation
-    if env.norm_E > 0
-        denom = (1 - env.options.rho) * env.norm_E
+    if env.norm_vio > 0
+        denom = (1 - env.options.rho) * env.norm_vio
         if denom > 0
             # @show denom, norm(env.p), env.df' * env.p
             env.mu = max(env.mu, (env.df' * env.p) / denom)
@@ -259,15 +265,15 @@ function compute_alpha(env::SLP)::Bool
 end
 
 # merit function
-compute_phi(f::Float64, mu::Float64, norm_E::Float64)::Float64 = f + mu * norm_E
-compute_phi(env::SLP)::Float64 = compute_phi(env.f, env.mu, env.norm_E)
-compute_phi(env::SLP, x::Vector{Float64})::Float64 = compute_phi(env.problem.eval_f(x), env.mu, norm_violations(env, x))
+compute_phi(f::Float64, mu::Float64, norm_vio::Float64)::Float64 = f + mu * norm_vio
+compute_phi(env::SLP)::Float64 = compute_phi(env.f, env.mu, env.norm_vio)
+compute_phi(env::SLP, x::Vector{Float64})::Float64 = compute_phi(env.problem.eval_f(x), env.mu, norm(eval_violations(env, x),1))
 function compute_phi!(env::SLP)
     env.phi = compute_phi(env)
 end
 
 # directional derivative
-compute_derivative(env::SLP)::Float64 = env.df' * env.p - env.mu * env.norm_E
+compute_derivative(env::SLP)::Float64 = env.df' * env.p - env.mu * env.norm_vio
 function compute_derivative!(env::SLP)
     env.directional_derivative = compute_derivative(env)
 end

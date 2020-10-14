@@ -10,6 +10,7 @@ const MOIU = MathOptInterface.Utilities
 include("Parameters.jl")
 include("struct.jl")
 include("SLP_line_search.jl")
+include("SLP_trust_region.jl")
 include("lp_opt.jl")
 
 
