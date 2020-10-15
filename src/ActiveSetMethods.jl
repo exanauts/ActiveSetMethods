@@ -10,6 +10,7 @@ const MOIU = MathOptInterface.Utilities
 include("Parameters.jl")
 include("struct.jl")
 include("SLP_line_search.jl")
+include("SLP_trust_region.jl")
 include("lp_opt.jl")
 
 
@@ -46,6 +47,9 @@ function solveASMProblem(model::ASMProblem)
             env = SLP(model)
             if model.parameters.algorithm == "Line Search"
                 line_search_method(env);
+            end
+            if model.parameters.algorithm == "Trust Region"
+                trust_region_method(env);
             end
         else
             @error "The method is not defined"
