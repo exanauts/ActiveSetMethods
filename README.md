@@ -1,5 +1,5 @@
 # ActiveSetMethods.jl
-[![Build Status](https://travis-ci.com/exanauts/ActiveSetMethods.svg?token=3N6HLyM8rqygf5Rmoqzp&branch=master)](https://travis-ci.com/exanauts/ActiveSetMethods)
+![Run tests](https://github.com/exanauts/ActiveSetMethods/workflows/Run%20tests/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/exanauts/ActiveSetMethods/branch/master/graph/badge.svg)](https://codecov.io/gh/exanauts/ActiveSetMethods)
 
 This is a Julia package that implements active set methods for continuous nonlinear optimization.
