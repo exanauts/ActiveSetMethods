@@ -91,11 +91,11 @@ function line_search_method(env::SLP)
         compute_mu!(env)
         compute_phi!(env)
 
-        if env.iter == 1
-            env.lambda .= lambda
-            env.mult_x_U .= mult_x_U
-            env.mult_x_L .= mult_x_L
-        end
+        # if env.iter == 1
+            # env.lambda .= lambda
+            # env.mult_x_U .= mult_x_U
+            # env.mult_x_L .= mult_x_L
+        # end
 
         prim_infeas = normalized_primal_infeasibility(env)
         dual_infeas = normalized_dual_infeasibility(env)

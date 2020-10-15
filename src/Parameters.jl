@@ -1,7 +1,7 @@
 Base.@kwdef mutable struct Parameters
     mode::String = "Normal"           # If Debug it will allow printing some useful information including collecting values for analysis parameters.
     method::String = "SLP"            # Defines the method -- either SLP or SQP (SQP hasn't been implemented yet)
-    algorithm::String = "Trust Region" # Defines the algorithm -- either Line Search or Trust Region Method (Trust Region algorithm hasn't been implemented yet)
+    algorithm::String = "Line Search" # Defines the algorithm -- either Line Search or Trust Region Method (Trust Region algorithm hasn't been implemented yet)
 
     # Defines the external solver for suproblems
     external_optimizer::Union{Nothing,MOI.AbstractOptimizer} = nothing
