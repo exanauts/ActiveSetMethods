@@ -1,20 +1,16 @@
-using Printf
+mutable struct SLP{Tv,Tt} <: AbstractSlpOptimizer
+    problem::Model{Tv,Tt}
 
-abstract type Environment end
-
-mutable struct SLP <: Environment
-    problem::ASMProblem
-
-    x::Vector{Float64}
-    p::Vector{Float64}
-    lambda::Vector{Float64}
-    mult_x_L::Vector{Float64}
-    mult_x_U::Vector{Float64}
+    x::Tv
+    p::Tv
+    lambda::Tv
+    mult_x_L::Tv
+    mult_x_U::Tv
     
     f::Float64
-    df::Vector{Float64}
-    E::Vector{Float64}
-    dE::Vector{Float64}
+    df::Tv
+    E::Tv
+    dE::Tv
     phi::Float64
     directional_derivative::Float64
 
@@ -27,17 +23,17 @@ mutable struct SLP <: Environment
     iter::Int
     ret::Int
 
-    function SLP(problem::ASMProblem)
-        slp = new()
+    function SLP(problem::Model{Tv,Tt}) where {Tv<:AbstractArray{Float64},Tt}
+        slp = new{Tv,Tt}()
         slp.problem = problem
-        slp.x = Vector{Float64}(undef, problem.n)
+        slp.x = Tv(undef, problem.n)
         slp.p = zeros(problem.n)
         slp.lambda = zeros(problem.m)
         slp.mult_x_L = zeros(problem.n)
         slp.mult_x_U = zeros(problem.n)
-        slp.df = Vector{Float64}(undef, problem.n)
-        slp.E = Vector{Float64}(undef, problem.m)
-        slp.dE = Vector{Float64}(undef, length(problem.j_str))
+        slp.df = Tv(undef, problem.n)
+        slp.E = Tv(undef, problem.m)
+        slp.dE = Tv(undef, length(problem.j_str))
         slp.phi = Inf
 
         slp.norm_E = 0.0
@@ -53,7 +49,7 @@ mutable struct SLP <: Environment
     end
 end
 
-function line_search_method(env::SLP)
+function slp_optimize!(env::SLP)
 
     Δ = env.options.tr_size
 

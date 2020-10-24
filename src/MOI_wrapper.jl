@@ -20,7 +20,7 @@ end
 ConstraintInfo(func, set) = ConstraintInfo(func, set, nothing)
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
-    inner::Union{ASMProblem,Nothing}
+    inner::Union{Model,Nothing}
 
     # Problem data.
     variable_info::Vector{VariableInfo}
@@ -1091,9 +1091,10 @@ function MOI.optimize!(model::Optimizer)
 
     constraint_lb, constraint_ub = constraint_bounds(model)
 
-    model.inner = createASMProblem(
-        num_variables, x_l, x_u, 
-        num_constraints, constraint_lb, constraint_ub, 
+    model.inner = Model(
+        num_variables, num_constraints, 
+        x_l, x_u, 
+        constraint_lb, constraint_ub, 
         jacobian_sparsity, hessian_sparsity,
         eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb, eval_h_cb,
         model.options)
@@ -1149,7 +1150,7 @@ function MOI.optimize!(model::Optimizer)
     model.inner.mult_x_U = [v.upper_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
                             for v in model.variable_info]
 
-    solveASMProblem(model.inner)
+    optimize!(model.inner)
 
     model.solve_time = time() - start_time
     return
