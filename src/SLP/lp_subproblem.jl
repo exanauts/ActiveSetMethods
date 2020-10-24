@@ -177,7 +177,7 @@ function solve_lp(
 	return Xsol, lambda, mult_x_U, mult_x_L, status
 end
 
-solve_lp(env::SLP, Δ) = solve_lp(
+solve_lp(env::SlpLS, Δ) = solve_lp(
 	sparse([env.df; env.f]),
 	compute_jacobian_matrix(env),
 	env.E,

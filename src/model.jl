@@ -64,7 +64,7 @@ function optimize!(model::Model)
         @error "`external_optimizer` parameter must be set for subproblem solutions."
     else
         if model.parameters.method == "SLP"
-            env = SLP(model)
+            env = SlpLS(model)
             if model.parameters.algorithm == "Line Search"
                 slp_optimize!(env);
             end

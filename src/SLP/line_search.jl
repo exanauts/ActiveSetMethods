@@ -1,7 +1,7 @@
-mutable struct SLP{Tv,Tt} <: AbstractSlpOptimizer
+mutable struct SlpLS{Tv,Tt} <: AbstractSlpOptimizer
     problem::Model{Tv,Tt}
 
-    x::Tv
+    x::Tv # primal solution
     p::Tv
     lambda::Tv
     mult_x_L::Tv
@@ -23,7 +23,7 @@ mutable struct SLP{Tv,Tt} <: AbstractSlpOptimizer
     iter::Int
     ret::Int
 
-    function SLP(problem::Model{Tv,Tt}) where {Tv<:AbstractArray{Float64},Tt}
+    function SlpLS(problem::Model{Tv,Tt}) where {Tv<:AbstractArray{Float64},Tt}
         slp = new{Tv,Tt}()
         slp.problem = problem
         slp.x = Tv(undef, problem.n)
@@ -49,7 +49,7 @@ mutable struct SLP{Tv,Tt} <: AbstractSlpOptimizer
     end
 end
 
-function slp_optimize!(env::SLP)
+function slp_optimize!(env::SlpLS)
 
     Δ = env.options.tr_size
 
@@ -173,13 +173,27 @@ function norm_violations(
     end
     return norm(viol, p)
 end
-norm_violations(env::SLP, p = 1) = norm_violations(env.E, env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U, p)
-norm_violations(env::SLP, x::Vector{Float64}, p = 1) = norm_violations(env.problem.eval_g(x, zeros(env.problem.m)), env.problem.g_L, env.problem.g_U, env.x, env.problem.x_L, env.problem.x_U, p)
-function norm_violations!(env::SLP)
+norm_violations(env::SlpLS, p = 1) = norm_violations(
+    env.E, 
+    env.problem.g_L, 
+    env.problem.g_U, 
+    env.x, 
+    env.problem.x_L, 
+    env.problem.x_U, 
+    p)
+norm_violations(env::SlpLS{Tv,Tt}, x::Tv, p = 1) where {Tv<:AbstractArray{Float64}, Tt} = norm_violations(
+    env.problem.eval_g(x, zeros(env.problem.m)), 
+    env.problem.g_L, 
+    env.problem.g_U, 
+    env.x, 
+    env.problem.x_L, 
+    env.problem.x_U, 
+    p)
+function norm_violations!(env::SlpLS)
     env.norm_E = norm_violations(env)
 end
 
-function eval_functions!(env::SLP)
+function eval_functions!(env::SlpLS)
     env.f = env.problem.eval_f(env.x)
     env.problem.eval_grad_f(env.x, env.df)
     env.problem.eval_g(env.x, env.E)
@@ -187,7 +201,7 @@ function eval_functions!(env::SLP)
     # @show env.f, env.df, env.E, env.dE
 end
 
-function compute_jacobian_matrix(env::SLP)
+function compute_jacobian_matrix(env::SlpLS)
 	J = spzeros(env.problem.m, env.problem.n)
 	for i = 1:length(env.problem.j_str)
 		J[env.problem.j_str[i][1], env.problem.j_str[i][2]] += env.dE[i]
@@ -198,12 +212,14 @@ end
 """
 Normalized primal/dual infeasibilities
 """
-normalized_primal_infeasibility(env::SLP) = norm_violations(env, Inf) / norm(env.dE, Inf)
-normalized_dual_infeasibility(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(env)
+normalized_primal_infeasibility(env::SlpLS) = norm_violations(env, Inf) / norm(env.dE, Inf)
+normalized_dual_infeasibility(env::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(env)
 
-compute_normalized_Kuhn_Tucker_residuals(env::SLP) = compute_normalized_Kuhn_Tucker_residuals(
+compute_normalized_Kuhn_Tucker_residuals(env::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(
     env.df, env.lambda, env.mult_x_U, env.mult_x_L, compute_jacobian_matrix(env))
-function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::Vector{Float64}, mult_x_U::Vector{Float64}, mult_x_L::Vector{Float64}, J::SparseMatrixCSC{Float64,Int})
+function compute_normalized_Kuhn_Tucker_residuals(
+    df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, J::SparseMatrixCSC{Float64,Int}
+) where Tv<:AbstractArray{Float64}
     KT_res = norm(df - J' * lambda - mult_x_U - mult_x_L)
     scalar = max(1.0, norm(df))
     for i = 1:J.m
@@ -213,7 +229,7 @@ function compute_normalized_Kuhn_Tucker_residuals(df::Vector{Float64}, lambda::V
     return KT_res / scalar
 end
 
-function compute_mu!(env::SLP)
+function compute_mu!(env::SlpLS)
     # Update mu only for positive violation
     if env.norm_E > 0
         denom = (1 - env.options.rho) * env.norm_E
@@ -225,7 +241,7 @@ function compute_mu!(env::SLP)
     # @show env.mu
 end
 
-function compute_alpha(env::SLP)::Bool
+function compute_alpha(env::SlpLS)::Bool
     is_valid = true
 
     env.alpha = 1.0
@@ -256,14 +272,15 @@ end
 
 # merit function
 compute_phi(f::Float64, mu::Float64, norm_E::Float64)::Float64 = f + mu * norm_E
-compute_phi(env::SLP)::Float64 = compute_phi(env.f, env.mu, env.norm_E)
-compute_phi(env::SLP, x::Vector{Float64})::Float64 = compute_phi(env.problem.eval_f(x), env.mu, norm_violations(env, x))
-function compute_phi!(env::SLP)
+compute_phi(env::SlpLS)::Float64 = compute_phi(env.f, env.mu, env.norm_E)
+compute_phi(env::SlpLS{Tv,Tt}, x::Tv) where {Tv<:AbstractArray{Float64}, Tt} = compute_phi(
+    env.problem.eval_f(x), env.mu, norm_violations(env, x))
+function compute_phi!(env::SlpLS)
     env.phi = compute_phi(env)
 end
 
 # directional derivative
-compute_derivative(env::SLP)::Float64 = env.df' * env.p - env.mu * env.norm_E
-function compute_derivative!(env::SLP)
+compute_derivative(env::SlpLS)::Float64 = env.df' * env.p - env.mu * env.norm_E
+function compute_derivative!(env::SlpLS)
     env.directional_derivative = compute_derivative(env)
 end
