@@ -150,9 +150,8 @@ function slp_optimize!(env::SlpLS)
 end
 
 function norm_violations(
-    E::Vector{Float64}, g_L::Vector{Float64}, g_U::Vector{Float64},
-    x::Vector{Float64}, x_L::Vector{Float64}, x_U::Vector{Float64},
-    p = 1)
+    E::Tv, g_L::Tv, g_U::Tv, x::Tv, x_L::Tv, x_U::Tv, p = 1
+) where Tv <: AbstractArray{Float64}
 
     m = length(E)
     n = length(x)
