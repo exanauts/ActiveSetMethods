@@ -1,5 +1,7 @@
-mutable struct SlpLS{Tv,Tt} <: AbstractSlpOptimizer
-    problem::Model{Tv,Tt}
+using Printf
+
+mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
+    problem::Model{T,Tv,Tt}
 
     x::Tv # primal solution
     p::Tv
@@ -7,24 +9,24 @@ mutable struct SlpLS{Tv,Tt} <: AbstractSlpOptimizer
     mult_x_L::Tv
     mult_x_U::Tv
     
-    f::Float64
+    f::T
     df::Tv
     E::Tv
     dE::Tv
-    phi::Float64
-    directional_derivative::Float64
+    phi::T
+    directional_derivative::T
 
-    norm_E::Float64 # norm of constraint violations
-    mu::Float64
-    alpha::Float64
+    norm_E::T # norm of constraint violations
+    mu::T
+    alpha::T
 
     options::Parameters
 
     iter::Int
     ret::Int
 
-    function SlpLS(problem::Model{Tv,Tt}) where {Tv<:AbstractArray{Float64},Tt}
-        slp = new{Tv,Tt}()
+    function SlpLS(problem::Model{T,Tv,Tt}) where {T, Tv<:AbstractArray{T}, Tt}
+        slp = new{T,Tv,Tt}()
         slp.problem = problem
         slp.x = Tv(undef, problem.n)
         slp.p = zeros(problem.n)
@@ -49,161 +51,134 @@ mutable struct SlpLS{Tv,Tt} <: AbstractSlpOptimizer
     end
 end
 
-function slp_optimize!(env::SlpLS)
+function slp_optimize!(slp::SlpLS)
 
-    Δ = env.options.tr_size
+    Δ = slp.options.tr_size
 
     # Set initial point from MOI
-    @assert length(env.x) == length(env.problem.x)
-    env.x .= env.problem.x
+    @assert length(slp.x) == length(slp.problem.x)
+    slp.x .= slp.problem.x
     # Adjust the initial point to satisfy the column bounds
-    for i = 1:env.problem.n
-        if env.problem.x_L[i] > -Inf
-            env.x[i] = max(env.x[i], env.problem.x_L[i])
+    for i = 1:slp.problem.n
+        if slp.problem.x_L[i] > -Inf
+            slp.x[i] = max(slp.x[i], slp.problem.x_L[i])
         end
-        if env.problem.x_U[i] > -Inf
-            env.x[i] = min(env.x[i], env.problem.x_U[i])
+        if slp.problem.x_U[i] > -Inf
+            slp.x[i] = min(slp.x[i], slp.problem.x_U[i])
         end
     end
 
-    env.iter = 1
+    slp.iter = 1
 
     @printf("%6s  %15s  %15s  %14s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "inf_pr", "inf_du", "Sparsity")
     while true
 
-        eval_functions!(env)
-        norm_violations!(env)
+        eval_functions!(slp)
+        norm_violations!(slp)
     
         # solve LP subproblem (to initialize dual multipliers)
-        env.p, lambda, mult_x_U, mult_x_L, status = solve_lp(env, Δ)
-        # @show env.lambda
+        slp.p, lambda, mult_x_U, mult_x_L, status = sublp_optimize!(slp, Δ)
+        # @show slp.lambda
     
-        compute_mu!(env)
-        compute_phi!(env)
+        compute_mu!(slp)
+        compute_phi!(slp)
 
-        # if env.iter == 1
-        #     env.lambda .= lambda
-        #     env.mult_x_U .= mult_x_U
-        #     env.mult_x_L .= mult_x_L
+        # if slp.iter == 1
+        #     slp.lambda .= lambda
+        #     slp.mult_x_U .= mult_x_U
+        #     slp.mult_x_L .= mult_x_L
         # end
 
-        prim_infeas = normalized_primal_infeasibility(env)
-        dual_infeas = normalized_dual_infeasibility(env)
-        Jac_matrix = compute_jacobian_matrix(env);
+        prim_infeas = normalized_primal_infeasibility(slp)
+        dual_infeas = normalized_dual_infeasibility(slp)
+        Jac_matrix = compute_jacobian_matrix(slp);
         sparsity_val = nnz(Jac_matrix)/length(Jac_matrix);
-        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e  %.8e\n", env.iter, env.f, env.phi, norm(env.df), prim_infeas, dual_infeas, sparsity_val)
-        if dual_infeas <= env.options.tol_residual && prim_infeas <= env.options.tol_infeas
+        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e  %.8e\n", slp.iter, slp.f, slp.phi, norm(slp.df), prim_infeas, dual_infeas, sparsity_val)
+        if dual_infeas <= slp.options.tol_residual && prim_infeas <= slp.options.tol_infeas
             @printf("Terminated due to tolerance: primal (%e), dual (%e)\n", prim_infeas, dual_infeas)
-            env.ret = 0;
+            slp.ret = 0;
             break
         end
 
         # directional derivative of the 1-norm merit function
-        compute_derivative!(env)
-        if env.directional_derivative > -1.e-8
-            @printf("Terminated: directional derivative (%e)\n", env.directional_derivative)
-            env.ret = 0
+        compute_derivative!(slp)
+        if slp.directional_derivative > -1.e-8
+            @printf("Terminated: directional derivative (%e)\n", slp.directional_derivative)
+            slp.ret = 0
             break
         end
 
         # step size computation
-        is_valid_step = compute_alpha(env)
-        if env.ret == -3
+        is_valid_step = compute_alpha(slp)
+        if slp.ret == -3
             @warn "Failed to find a step size"
             break
         end
-        if !is_valid_step && env.iter < env.options.max_iter
-            env.iter += 1
+        if !is_valid_step && slp.iter < slp.options.max_iter
+            slp.iter += 1
             continue
         end
-        # @show env.alpha
+        # @show slp.alpha
 
         # update primal points
-        env.x += env.alpha .* env.p
+        slp.x += slp.alpha .* slp.p
 
         # update multipliers
-        env.lambda += env.alpha .* (lambda - env.lambda)
-        env.mult_x_U += env.alpha .* (mult_x_U - env.mult_x_U)
-        env.mult_x_L += env.alpha .* (mult_x_L - env.mult_x_L)
-        # @show env.lambda
-        # @show env.mult_x_U
-        # @show env.mult_x_L
+        slp.lambda += slp.alpha .* (lambda - slp.lambda)
+        slp.mult_x_U += slp.alpha .* (mult_x_U - slp.mult_x_U)
+        slp.mult_x_L += slp.alpha .* (mult_x_L - slp.mult_x_L)
+        # @show slp.lambda
+        # @show slp.mult_x_U
+        # @show slp.mult_x_L
 
         # Iteration counter limit
-        if env.iter >= env.options.max_iter
-            env.ret = -1
-            if norm_violations(env, env.x) <= env.options.tol_infeas
-                env.ret = 6
+        if slp.iter >= slp.options.max_iter
+            slp.ret = -1
+            if norm_violations(slp, slp.x) <= slp.options.tol_infeas
+                slp.ret = 6
             end
             break
         end
-        env.iter += 1
+        slp.iter += 1
     end
 
-    env.problem.obj_val = env.problem.eval_f(env.x)
-    env.problem.status = Int(env.ret)
-    env.problem.x = env.x
-    env.problem.g = env.E
-    env.problem.mult_g = env.lambda
-    env.problem.mult_x_U = env.mult_x_U
-    env.problem.mult_x_L = env.mult_x_L
+    slp.problem.obj_val = slp.problem.eval_f(slp.x)
+    slp.problem.status = Int(slp.ret)
+    slp.problem.x = slp.x
+    slp.problem.g = slp.E
+    slp.problem.mult_g = slp.lambda
+    slp.problem.mult_x_U = slp.mult_x_U
+    slp.problem.mult_x_L = slp.mult_x_L
 end
 
-function norm_violations(
-    E::Tv, g_L::Tv, g_U::Tv, x::Tv, x_L::Tv, x_U::Tv, p = 1
-) where Tv <: AbstractArray{Float64}
+norm_violations(slp::SlpLS, p = 1) = norm_violations(
+    slp.E, slp.problem.g_L, slp.problem.g_U, 
+    slp.x, slp.problem.x_L, slp.problem.x_U, 
+    p
+)
 
-    m = length(E)
-    n = length(x)
-    viol = zeros(m+n)
-    for i = 1:m
-        if E[i] > g_U[i]
-            viol[i] = E[i] - g_U[i]
-        elseif E[i] < g_L[i]
-            viol[i] = g_L[i] - E[i]
-        end
-    end
-    for j = 1:n
-        if x[j] > x_U[j]
-            viol[m+j] = x[j] - x_U[j]
-        elseif x[j] < x_L[j]
-            viol[m+j] = x_L[j] - x[j]
-        end
-    end
-    return norm(viol, p)
-end
-norm_violations(env::SlpLS, p = 1) = norm_violations(
-    env.E, 
-    env.problem.g_L, 
-    env.problem.g_U, 
-    env.x, 
-    env.problem.x_L, 
-    env.problem.x_U, 
-    p)
-norm_violations(env::SlpLS{Tv,Tt}, x::Tv, p = 1) where {Tv<:AbstractArray{Float64}, Tt} = norm_violations(
-    env.problem.eval_g(x, zeros(env.problem.m)), 
-    env.problem.g_L, 
-    env.problem.g_U, 
-    env.x, 
-    env.problem.x_L, 
-    env.problem.x_U, 
-    p)
-function norm_violations!(env::SlpLS)
-    env.norm_E = norm_violations(env)
+norm_violations(slp::SlpLS{T,Tv,Tt}, x::Tv, p = 1) where {T, Tv<:AbstractArray{T}, Tt} = norm_violations(
+    slp.problem.eval_g(x, zeros(slp.problem.m)), slp.problem.g_L, slp.problem.g_U, 
+    slp.x, slp.problem.x_L, slp.problem.x_U, 
+    p
+)
+
+function norm_violations!(slp::SlpLS)
+    slp.norm_E = norm_violations(slp)
 end
 
-function eval_functions!(env::SlpLS)
-    env.f = env.problem.eval_f(env.x)
-    env.problem.eval_grad_f(env.x, env.df)
-    env.problem.eval_g(env.x, env.E)
-    env.problem.eval_jac_g(env.x, :opt, [], [], env.dE)
-    # @show env.f, env.df, env.E, env.dE
+function eval_functions!(slp::SlpLS)
+    slp.f = slp.problem.eval_f(slp.x)
+    slp.problem.eval_grad_f(slp.x, slp.df)
+    slp.problem.eval_g(slp.x, slp.E)
+    slp.problem.eval_jac_g(slp.x, :opt, [], [], slp.dE)
+    # @show slp.f, slp.df, slp.E, slp.dE
 end
 
-function compute_jacobian_matrix(env::SlpLS)
-	J = spzeros(env.problem.m, env.problem.n)
-	for i = 1:length(env.problem.j_str)
-		J[env.problem.j_str[i][1], env.problem.j_str[i][2]] += env.dE[i]
+function compute_jacobian_matrix(slp::SlpLS)
+	J = spzeros(slp.problem.m, slp.problem.n)
+	for i = 1:length(slp.problem.j_str)
+		J[slp.problem.j_str[i][1], slp.problem.j_str[i][2]] += slp.dE[i]
     end 
     return J
 end
@@ -211,14 +186,15 @@ end
 """
 Normalized primal/dual infeasibilities
 """
-normalized_primal_infeasibility(env::SlpLS) = norm_violations(env, Inf) / norm(env.dE, Inf)
-normalized_dual_infeasibility(env::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(env)
+normalized_primal_infeasibility(slp::SlpLS) = norm_violations(slp, Inf) / norm(slp.dE, Inf)
+normalized_dual_infeasibility(slp::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(slp)
 
-compute_normalized_Kuhn_Tucker_residuals(env::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(
-    env.df, env.lambda, env.mult_x_U, env.mult_x_L, compute_jacobian_matrix(env))
+compute_normalized_Kuhn_Tucker_residuals(slp::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(
+    slp.df, slp.lambda, slp.mult_x_U, slp.mult_x_L, compute_jacobian_matrix(slp))
+
 function compute_normalized_Kuhn_Tucker_residuals(
-    df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, J::SparseMatrixCSC{Float64,Int}
-) where Tv<:AbstractArray{Float64}
+    df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, J::Tm
+) where {T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
     KT_res = norm(df - J' * lambda - mult_x_U - mult_x_L)
     scalar = max(1.0, norm(df))
     for i = 1:J.m
@@ -228,58 +204,63 @@ function compute_normalized_Kuhn_Tucker_residuals(
     return KT_res / scalar
 end
 
-function compute_mu!(env::SlpLS)
+function compute_mu!(slp::SlpLS)
     # Update mu only for positive violation
-    if env.norm_E > 0
-        denom = (1 - env.options.rho) * env.norm_E
+    if slp.norm_E > 0
+        denom = (1 - slp.options.rho) * slp.norm_E
         if denom > 0
-            # @show denom, norm(env.p), env.df' * env.p
-            env.mu = max(env.mu, (env.df' * env.p) / denom)
+            # @show denom, norm(slp.p), slp.df' * slp.p
+            slp.mu = max(slp.mu, (slp.df' * slp.p) / denom)
         end
     end
-    # @show env.mu
+    # @show slp.mu
 end
 
-function compute_alpha(env::SlpLS)::Bool
+"""
+    compute_alpha
+
+Compute step size for line search
+"""
+function compute_alpha(slp::SlpLS)::Bool
     is_valid = true
 
-    env.alpha = 1.0
-    phi_x_p = compute_phi(env, env.x .+ env.alpha * env.p)
-    eta = env.options.eta
+    slp.alpha = 1.0
+    phi_x_p = compute_phi(slp, slp.x .+ slp.alpha * slp.p)
+    eta = slp.options.eta
 
-    while phi_x_p > env.phi + eta * env.alpha * env.directional_derivative
-        if env.alpha < env.options.min_alpha
-            if env.mu < env.options.max_mu
-                env.mu = min(env.options.max_mu, env.mu * 10)
-                @printf("* step size too small: increase mu to %e\n", env.mu)
+    while phi_x_p > slp.phi + eta * slp.alpha * slp.directional_derivative
+        if slp.alpha < slp.options.min_alpha
+            if slp.mu < slp.options.max_mu
+                slp.mu = min(slp.options.max_mu, slp.mu * 10)
+                @printf("* step size too small: increase mu to %e\n", slp.mu)
                 is_valid = false
             elseif eta > 1.e-6
                 eta *= 0.5
                 @printf("* step size too small: decrease eta to %e\n", eta)
                 continue
             else
-                env.ret = -3
+                slp.ret = -3
             end
             break
         end
-        env.alpha *= env.options.tau
-        phi_x_p = compute_phi(env, env.x + env.alpha * env.p)
-        # @show phi_x_p, env.phi, env.alpha, env.directional_derivative, env.phi + env.options.eta * env.alpha * env.directional_derivative
+        slp.alpha *= slp.options.tau
+        phi_x_p = compute_phi(slp, slp.x + slp.alpha * slp.p)
+        # @show phi_x_p, slp.phi, slp.alpha, slp.directional_derivative, slp.phi + slp.options.eta * slp.alpha * slp.directional_derivative
     end
     return is_valid
 end
 
 # merit function
-compute_phi(f::Float64, mu::Float64, norm_E::Float64)::Float64 = f + mu * norm_E
-compute_phi(env::SlpLS)::Float64 = compute_phi(env.f, env.mu, env.norm_E)
-compute_phi(env::SlpLS{Tv,Tt}, x::Tv) where {Tv<:AbstractArray{Float64}, Tt} = compute_phi(
-    env.problem.eval_f(x), env.mu, norm_violations(env, x))
-function compute_phi!(env::SlpLS)
-    env.phi = compute_phi(env)
+compute_phi(f, mu, norm_E) = f + mu * norm_E
+compute_phi(slp::SlpLS) = compute_phi(slp.f, slp.mu, slp.norm_E)
+compute_phi(slp::SlpLS{T,Tv,Tt}, x::Tv) where {T, Tv<:AbstractArray{T}, Tt} = compute_phi(
+    slp.problem.eval_f(x), slp.mu, norm_violations(slp, x))
+function compute_phi!(slp::SlpLS)
+    slp.phi = compute_phi(slp)
 end
 
 # directional derivative
-compute_derivative(env::SlpLS)::Float64 = env.df' * env.p - env.mu * env.norm_E
-function compute_derivative!(env::SlpLS)
-    env.directional_derivative = compute_derivative(env)
+compute_derivative(slp::SlpLS) = slp.df' * slp.p - slp.mu * slp.norm_E
+function compute_derivative!(slp::SlpLS)
+    slp.directional_derivative = compute_derivative(slp)
 end

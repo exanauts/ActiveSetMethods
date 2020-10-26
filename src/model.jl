@@ -1,4 +1,4 @@
-mutable struct Model{Tv,Tt}
+mutable struct Model{T,Tv,Tt}
     n::Int  # Num vars
     m::Int  # Num cons
     x::Tv  # Starting and final solution
@@ -12,7 +12,7 @@ mutable struct Model{Tv,Tt}
     mult_g::Tv # lagrange multipliers on constraints
     mult_x_L::Tv # lagrange multipliers on lower bounds
     mult_x_U::Tv # lagrange multipliers on upper bounds
-    obj_val::Float64  # Final objective
+    obj_val::T  # Final objective
     status::Int  # Final status
 
     # Callbacks
@@ -44,7 +44,7 @@ mutable struct Model{Tv,Tt}
         eval_jac_g::Function,
         eval_h,
         parameters::Parameters
-    ) where {Tv<:AbstractArray{Float64}, Tt<:AbstractArray{Tuple{Int64,Int64}}} = new{Tv,Tt}(
+    ) where {T, Tv<:AbstractArray{T}, Tt<:AbstractArray{Tuple{Int64,Int64}}} = new{T,Tv,Tt}(
         n, m,
         zeros(n), x_L, x_U,
         zeros(m), g_L, g_U,
