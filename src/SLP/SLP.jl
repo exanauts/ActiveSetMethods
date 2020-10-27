@@ -13,6 +13,30 @@ Empty function to run SLP algorithm
 function slp_optimize! end
 
 """
+    KT_residuals
+
+Compute Kuhn-Turck residuals
+
+# Arguments
+- `df`: gradient
+- `lambda`: Lagrangian multipliers with respect to the constraints
+- `mult_x_U`: reduced cost with respect to the upper bounds
+- `mult_x_L`: reduced cost with respect to the lower bounds
+- `Jac`: Jacobian matrix
+- `norm`: whether the residual is normalized or not
+"""
+function KT_residuals(
+    df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, Jac::Tm
+) where {T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
+    KT_res = norm(df - Jac' * lambda - mult_x_U - mult_x_L)
+    scalar = max(1.0, norm(df))
+    for i = 1:size(Jac,1)
+        scalar = max(scalar, abs(lambda[i]) * norm(Jac[i,:]))
+    end
+    return KT_res / scalar
+end
+
+"""
     norm_violations
 
 Compute the normalized constraint violation

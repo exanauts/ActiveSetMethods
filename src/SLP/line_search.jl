@@ -70,7 +70,7 @@ function slp_optimize!(slp::SlpLS)
 
     slp.iter = 1
 
-    @printf("%6s  %15s  %15s  %14s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "|∇f|", "inf_pr", "inf_du", "Sparsity")
+    @printf("%6s  %15s  %15s  %15s  %14s  %14s  %14s  %14s  %14s\n", "iter", "f(x_k)", "ϕ(x_k)", "D(ϕ,p)", "μ", "|∇f|", "inf_pr", "KT_resid", "Sparsity")
     while true
 
         eval_functions!(slp)
@@ -82,6 +82,7 @@ function slp_optimize!(slp::SlpLS)
     
         compute_mu!(slp)
         compute_phi!(slp)
+        compute_derivative!(slp)
 
         # if slp.iter == 1
         #     slp.lambda .= lambda
@@ -89,19 +90,18 @@ function slp_optimize!(slp::SlpLS)
         #     slp.mult_x_L .= mult_x_L
         # end
 
-        prim_infeas = normalized_primal_infeasibility(slp)
-        dual_infeas = normalized_dual_infeasibility(slp)
-        Jac_matrix = compute_jacobian_matrix(slp);
-        sparsity_val = nnz(Jac_matrix)/length(Jac_matrix);
-        @printf("%6d  %+.8e  %+.8e  %.8e  %.8e  %.8e  %.8e\n", slp.iter, slp.f, slp.phi, norm(slp.df), prim_infeas, dual_infeas, sparsity_val)
+        prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
+        dual_infeas = KT_residuals(slp)
+        sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
+        @printf("%6d  %+.8e  %+.8e  %+.8e  %.8e  %.8e  %.8e  %.8e  %.8e\n", 
+            slp.iter, slp.f, slp.phi, slp.directional_derivative, slp.mu, norm(slp.df), prim_infeas, dual_infeas, sparsity_val)
         if dual_infeas <= slp.options.tol_residual && prim_infeas <= slp.options.tol_infeas
-            @printf("Terminated due to tolerance: primal (%e), dual (%e)\n", prim_infeas, dual_infeas)
+            @printf("Terminated due to tolerance: primal (%e), Kuhn-Tucker residual (%e)\n", prim_infeas, dual_infeas)
             slp.ret = 0;
             break
         end
 
         # directional derivative of the 1-norm merit function
-        compute_derivative!(slp)
         if slp.directional_derivative > -1.e-8
             @printf("Terminated: directional derivative (%e)\n", slp.directional_derivative)
             slp.ret = 0
@@ -144,12 +144,25 @@ function slp_optimize!(slp::SlpLS)
 
     slp.problem.obj_val = slp.problem.eval_f(slp.x)
     slp.problem.status = Int(slp.ret)
-    slp.problem.x = slp.x
-    slp.problem.g = slp.E
-    slp.problem.mult_g = slp.lambda
-    slp.problem.mult_x_U = slp.mult_x_U
-    slp.problem.mult_x_L = slp.mult_x_L
+    slp.problem.x .= slp.x
+    slp.problem.g .= slp.E
+    slp.problem.mult_g .= slp.lambda
+    slp.problem.mult_x_U .= slp.mult_x_U
+    slp.problem.mult_x_L .= slp.mult_x_L
 end
+
+"""
+    KT_residuals
+
+Compute Kuhn-Turck residuals
+"""
+KT_residuals(slp::SlpLS) = KT_residuals(slp.df, slp.lambda, slp.mult_x_U, slp.mult_x_L, compute_jacobian_matrix(slp))
+
+"""
+    norm_violations
+
+Compute the normalized constraint violation
+"""
 
 norm_violations(slp::SlpLS, p = 1) = norm_violations(
     slp.E, slp.problem.g_L, slp.problem.g_U, 
@@ -183,27 +196,6 @@ function compute_jacobian_matrix(slp::SlpLS)
     return J
 end
 
-"""
-Normalized primal/dual infeasibilities
-"""
-normalized_primal_infeasibility(slp::SlpLS) = norm_violations(slp, Inf) / norm(slp.dE, Inf)
-normalized_dual_infeasibility(slp::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(slp)
-
-compute_normalized_Kuhn_Tucker_residuals(slp::SlpLS) = compute_normalized_Kuhn_Tucker_residuals(
-    slp.df, slp.lambda, slp.mult_x_U, slp.mult_x_L, compute_jacobian_matrix(slp))
-
-function compute_normalized_Kuhn_Tucker_residuals(
-    df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, J::Tm
-) where {T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
-    KT_res = norm(df - J' * lambda - mult_x_U - mult_x_L)
-    scalar = max(1.0, norm(df))
-    for i = 1:J.m
-        scalar = max(scalar, abs(lambda[i]) * norm(J[i,:]))
-    end
-    # @show KT_res, scalar
-    return KT_res / scalar
-end
-
 function compute_mu!(slp::SlpLS)
     # Update mu only for positive violation
     if slp.norm_E > 0
@@ -213,6 +205,7 @@ function compute_mu!(slp::SlpLS)
             slp.mu = max(slp.mu, (slp.df' * slp.p) / denom)
         end
     end
+    slp.mu = max(norm(slp.lambda, Inf)+1.e-4, slp.mu)
     # @show slp.mu
 end
 
@@ -229,8 +222,15 @@ function compute_alpha(slp::SlpLS)::Bool
     eta = slp.options.eta
 
     while phi_x_p > slp.phi + eta * slp.alpha * slp.directional_derivative
+        # The step size can become too small.
         if slp.alpha < slp.options.min_alpha
+            # This can happen when mu is not sufficiently large.
+            # A descent step is valid only for a sufficiently large mu.
+            slp.mu = slp.mu * 3
+            is_valid = false
+            #=
             if slp.mu < slp.options.max_mu
+                # Increase mu, if mu is not large enough.
                 slp.mu = min(slp.options.max_mu, slp.mu * 10)
                 @printf("* step size too small: increase mu to %e\n", slp.mu)
                 is_valid = false
@@ -241,6 +241,7 @@ function compute_alpha(slp::SlpLS)::Bool
             else
                 slp.ret = -3
             end
+            =#
             break
         end
         slp.alpha *= slp.options.tau
