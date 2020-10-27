@@ -20,6 +20,8 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     mu::T
     alpha::T
 
+    optimizer::MOI.AbstractOptimizer
+
     options::Parameters
 
     iter::Int
@@ -44,6 +46,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.alpha = 1.0
 
         slp.options = problem.parameters
+        slp.optimizer = slp.options.external_optimizer()
 
         slp.iter = 1
         slp.ret = -5

@@ -2,7 +2,7 @@ using ActiveSetMethods, GLPK
 using JuMP
 
 model = Model(ActiveSetMethods.Optimizer);
-set_optimizer_attribute(model, "external_optimizer", GLPK.Optimizer())
+set_optimizer_attribute(model, "external_optimizer", GLPK.Optimizer)
 
 @variable(model, X);
 @variable(model, Y);

@@ -30,7 +30,7 @@ using GLPK # can be any LP solver
 n = 1
 
 # Build nonlinear problem model via JuMP
-model = Model(optimizer_with_attributes(ActiveSetMethods.Optimizer, "external_optimizer" => GLPK.Optimizer()))
+model = Model(optimizer_with_attributes(ActiveSetMethods.Optimizer, "external_optimizer" => GLPK.Optimizer))
 @variable(model, x)
 @objective(model, Min, x^2 + x)
 @NLconstraint(model, x^2 - x == 2)

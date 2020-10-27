@@ -174,7 +174,7 @@ function sublp_optimize!(
 end
 
 sublp_optimize!(slp::SlpLS, Δ) = sublp_optimize!(
-	slp.options.external_optimizer,
+	slp.optimizer,
 	LpData(slp),
 	slp.mu,
 	slp.x,

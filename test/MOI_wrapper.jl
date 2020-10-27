@@ -5,7 +5,7 @@ const MOIU = MOI.Utilities
 const MOIB = MOI.Bridges
 
 const optimizer = ActiveSetMethods.Optimizer()
-MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer())
+MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer)
 MOI.set(optimizer, MOI.RawParameter("max_iter"), 1000)
 
 const config = MOIT.TestConfig(atol=1e-4, rtol=1e-4,
@@ -27,7 +27,7 @@ end
 
 @testset "Unit" begin
     bridged = MOIB.full_bridge_optimizer(
-        ActiveSetMethods.Optimizer(external_optimizer = GLPK.Optimizer()),
+        ActiveSetMethods.Optimizer(external_optimizer = GLPK.Optimizer),
         Float64)
     # A number of test cases are excluded because loadfromstring! works only
     # if the solver supports variable and constraint names.

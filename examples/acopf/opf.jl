@@ -9,7 +9,7 @@ build_dcp(data_file::String) = instantiate_model(PowerModels.parse_file(data_fil
 run_opf(data_file::String) = run_opf(build_acp(data_file))
 run_opf(pm::AbstractPowerModel, max_iter::Int = 100) = optimize_model!(pm, optimizer = optimizer_with_attributes(
     ActiveSetMethods.Optimizer, 
-    "external_optimizer" => GLPK.Optimizer(),
+    "external_optimizer" => GLPK.Optimizer,
     "max_iter" => max_iter
 ))
 
