@@ -133,12 +133,14 @@ function sublp_optimize!(
 	lambda = Tv(undef, m)
 	mult_x_U = Tv(undef, n)
 	mult_x_L = Tv(undef, n)
+	infeasibility = 0.0
 
 	if status == MOI.OPTIMAL
 		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
 		if m > 0
 			Usol = MOI.get(model, MOI.VariablePrimal(), u);
 			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
+			infeasibility += max(0.0, sum(Usol) + sum(Vsol))
 		end
 
 		# extract the multipliers to constraints
@@ -146,6 +148,7 @@ function sublp_optimize!(
 		for i=1:m
 			lambda[i] = MOI.get(model, MOI.ConstraintDual(1), constr[ci])
 			ci += 1
+			# This is for a ranged constraint.
 			if lp.c_lb[i] > -Inf && lp.c_ub[i] < Inf && lp.c_lb[i] < lp.c_ub[i]
 				lambda[i] += MOI.get(model, MOI.ConstraintDual(1), constr[ci])
 				ci += 1
@@ -170,13 +173,13 @@ function sublp_optimize!(
 		@error "Unexpected status: $(status)"
 	end
 
-	return Xsol, lambda, mult_x_U, mult_x_L, status
+	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, status
 end
 
 sublp_optimize!(slp::SlpLS, Δ) = sublp_optimize!(
 	slp.optimizer,
 	LpData(slp),
-	slp.mu,
+	slp.mu_lp,
 	slp.x,
 	Δ
 )
