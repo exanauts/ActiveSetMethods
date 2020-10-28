@@ -1070,8 +1070,7 @@ function MOI.optimize!(model::Optimizer)
 
     if has_hessian
         # Hessian callback
-        function eval_h_cb(x, mode, rows, cols, obj_factor,
-            lambda, values)
+        function eval_h_cb(x, mode, rows, cols, obj_factor, lambda, values)
             if mode == :Structure
                 for i in 1:length(hessian_sparsity)
                     rows[i] = hessian_sparsity[i][1]
@@ -1107,7 +1106,7 @@ function MOI.optimize!(model::Optimizer)
     ###addOption(model.inner, "check_derivatives_for_naninf", "yes")
 
     if !has_hessian
-   	set_parameter(model.options, "hessian_type", "none")
+   	    set_parameter(model.options, "hessian_type", "none")
     end
 
     # If nothing is provided, the default starting value is 0.0.

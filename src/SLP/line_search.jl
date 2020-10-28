@@ -13,6 +13,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     df::Tv
     E::Tv
     dE::Tv
+    # hLag::Tv
     phi::T
     directional_derivative::T
 
@@ -39,6 +40,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.df = Tv(undef, problem.n)
         slp.E = Tv(undef, problem.m)
         slp.dE = Tv(undef, length(problem.j_str))
+        # slp.hLag = Tv(undef, length(problem.h_str))
         slp.phi = Inf
 
         slp.norm_E = 0.0
@@ -233,7 +235,9 @@ function eval_functions!(slp::SlpLS)
     slp.f = slp.problem.eval_f(slp.x)
     slp.problem.eval_grad_f(slp.x, slp.df)
     slp.problem.eval_g(slp.x, slp.E)
-    slp.problem.eval_jac_g(slp.x, :opt, [], [], slp.dE)
+    slp.problem.eval_jac_g(slp.x, :eval, [], [], slp.dE)
+    # obj_factor = 1.0
+    # slp.problem.eval_h(slp.x, :eval, [], [], obj_factor, slp.lambda, slp.hLag)
     # @show slp.f, slp.df, slp.E, slp.dE
 end
 

@@ -20,8 +20,8 @@ mutable struct Model{T,Tv,Tt}
     eval_g::Function
     eval_grad_f::Function
     eval_jac_g::Function
+    eval_h::Function
 
-    eval_h  # Can be nothing
     intermediate  # Can be nothing
 
     # For MathProgBase
@@ -42,7 +42,7 @@ mutable struct Model{T,Tv,Tt}
         eval_g::Function,
         eval_grad_f::Function,
         eval_jac_g::Function,
-        eval_h,
+        eval_h::Function,
         parameters::Parameters
     ) where {T, Tv<:AbstractArray{T}, Tt<:AbstractArray{Tuple{Int64,Int64}}} = new{T,Tv,Tt}(
         n, m,
