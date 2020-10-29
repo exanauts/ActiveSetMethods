@@ -57,7 +57,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     end
 end
 
-function slp_optimize!(slp::SlpLS)
+function active_set_optimize!(slp::SlpLS)
 
     Δ = slp.options.tr_size
 
@@ -97,10 +97,10 @@ function slp_optimize!(slp::SlpLS)
         end
 
         eval_functions!(slp)
-        norm_violations!(slp)
+        slp.norm_E = norm_violations(slp)
     
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sublp_optimize!(slp, Δ)
+        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
 
         # update multipliers
@@ -109,8 +109,8 @@ function slp_optimize!(slp::SlpLS)
         slp.mult_x_L .= mult_x_L
     
         compute_mu_merit!(slp)
-        compute_phi!(slp)
-        compute_derivative!(slp)
+        slp.phi = compute_phi(slp)
+        slp.directional_derivative = compute_derivative(slp)
 
         prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
         dual_infeas = KT_residuals(slp)
@@ -190,6 +190,29 @@ function slp_optimize!(slp::SlpLS)
     slp.problem.mult_x_L .= slp.mult_x_L
 end
 
+function LpData(slp::SlpLS)
+	A = compute_jacobian_matrix(slp)
+	return QpData(
+        MOI.MIN_SENSE,
+        nothing,
+		slp.df,
+		slp.f,
+		A,
+		slp.E,
+		slp.problem.g_L,
+		slp.problem.g_U,
+		slp.problem.x_L,
+		slp.problem.x_U)
+end
+
+sub_optimize!(slp::SlpLS, Δ) = sub_optimize!(
+	slp.optimizer,
+	LpData(slp),
+	slp.mu_lp,
+	slp.x,
+	Δ
+)
+
 """
     KT_residuals
 
@@ -227,10 +250,6 @@ norm_violations(slp::SlpLS{T,Tv,Tt}, x::Tv, p = 1) where {T, Tv<:AbstractArray{T
     p
 )
 
-function norm_violations!(slp::SlpLS)
-    slp.norm_E = norm_violations(slp)
-end
-
 function eval_functions!(slp::SlpLS)
     slp.f = slp.problem.eval_f(slp.x)
     slp.problem.eval_grad_f(slp.x, slp.df)
@@ -241,27 +260,11 @@ function eval_functions!(slp::SlpLS)
     # @show slp.f, slp.df, slp.E, slp.dE
 end
 
-function compute_jacobian_matrix(slp::SlpLS)
-	J = spzeros(slp.problem.m, slp.problem.n)
-	for i = 1:length(slp.problem.j_str)
-		J[slp.problem.j_str[i][1], slp.problem.j_str[i][2]] += slp.dE[i]
-    end 
-    return J
-end
+compute_jacobian_matrix(slp::SlpLS) = compute_jacobian_matrix(slp.problem.m, slp.problem.n, slp.problem.j_str, slp.dE)
 
+compute_mu_merit(slp::SlpLS) = compute_mu_merit(slp.df, slp.p, slp.options.rho, slp.norm_E, slp.lambda)
 function compute_mu_merit!(slp::SlpLS)
-    # Update mu only for positive violation
-    if slp.norm_E > 1.e-10
-        slp.mu_merit = max(
-            slp.mu_merit, 
-            (slp.df' * slp.p) / (1 - slp.options.rho) * slp.norm_E
-        )
-    end
-    slp.mu_merit = max(
-        norm(slp.lambda, Inf)+1.e-4, 
-        slp.mu_merit
-    )
-    # @show slp.mu_merit
+    slp.mu_merit = max(slp.mu_merit, compute_mu_merit(slp))
 end
 
 """
@@ -307,16 +310,9 @@ function compute_alpha(slp::SlpLS)::Bool
 end
 
 # merit function
-compute_phi(f, mu, norm_E) = f + mu * norm_E
 compute_phi(slp::SlpLS) = compute_phi(slp.f, slp.mu_merit, slp.norm_E)
 compute_phi(slp::SlpLS{T,Tv,Tt}, x::Tv) where {T, Tv<:AbstractArray{T}, Tt} = compute_phi(
     slp.problem.eval_f(x), slp.mu_merit, norm_violations(slp, x))
-function compute_phi!(slp::SlpLS)
-    slp.phi = compute_phi(slp)
-end
 
 # directional derivative
-compute_derivative(slp::SlpLS) = slp.df' * slp.p - slp.mu_merit * slp.norm_E
-function compute_derivative!(slp::SlpLS)
-    slp.directional_derivative = compute_derivative(slp)
-end
+compute_derivative(slp::SlpLS) = compute_derivative(slp.df, slp.p, slp.mu_merit, slp.norm_E)

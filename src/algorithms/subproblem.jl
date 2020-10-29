@@ -1,5 +1,6 @@
-struct LpData{T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
+struct QpData{T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
 	sense::MOI.OptimizationSense
+	Q::Union{Nothing,Tm}
 	c::Tv
 	c0::T # objective functiton constant term
 	A::Tm
@@ -10,35 +11,21 @@ struct LpData{T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
 	v_ub::Tv
 end
 
-function LpData(slp::SlpLS)
-	A = compute_jacobian_matrix(slp)
-	return LpData(
-		MOI.MIN_SENSE,
-		slp.df,
-		slp.f,
-		A,
-		slp.E,
-		slp.problem.g_L,
-		slp.problem.g_U,
-		slp.problem.x_L,
-		slp.problem.x_U)
-end
-
 """
-	sublp_optimize!
+	sub_optimize!
 
-Solve LP subproblem
+Solve subproblem
 
 # Arguments
 - `model`: MOI abstract optimizer
-- `lp`: LP problem data
+- `qp`: QP problem data
 - `mu`: penalty parameter
 - `x_k`: trust region center
 - `Δ`: trust region size
 """
-function sublp_optimize!(
+function sub_optimize!(
 	model::MOI.AbstractOptimizer,
-	lp::LpData{T,Tv,Tm},
+	qp::QpData{T,Tv,Tm},
 	mu::T,
 	x_k::Tv,
 	Δ::T,
@@ -48,14 +35,14 @@ function sublp_optimize!(
 	MOI.empty!(model)
 
 	# dimension of LP
-	m, n = size(lp.A)
+	m, n = size(qp.A)
 	@assert n > 0
 	@assert m >= 0
-	@assert length(lp.c) == n
-	@assert length(lp.c_lb) == m
-	@assert length(lp.c_ub) == m
-	@assert length(lp.v_lb) == n
-	@assert length(lp.v_ub) == n
+	@assert length(qp.c) == n
+	@assert length(qp.c_lb) == m
+	@assert length(qp.c_ub) == m
+	@assert length(qp.v_lb) == n
+	@assert length(qp.v_ub) == n
 	@assert length(x_k) == n
 	
 	# variables
@@ -64,7 +51,7 @@ function sublp_optimize!(
 	# objective function
 	obj_terms = Array{MOI.ScalarAffineTerm{T},1}();
 	for i in 1:n
-		push!(obj_terms, MOI.ScalarAffineTerm{T}(lp.c[i], MOI.VariableIndex(i)));
+		push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
 	end
 
 	# Slacks v and u are added only for constrained problems.
@@ -78,15 +65,15 @@ function sublp_optimize!(
 	# set constant term to the objective function
 	MOI.set(model,
 		MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
-		MOI.ScalarAffineFunction(obj_terms, lp.c0))
+		MOI.ScalarAffineFunction(obj_terms, qp.c0))
 	MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 	# Add a dummy trust-region to all variables
 	constr_v_ub = MOI.ConstraintIndex[]
 	constr_v_lb = MOI.ConstraintIndex[]
 	for i = 1:n
-		ub = min(Δ, lp.v_ub[i] - x_k[i])
-		lb = max(-Δ, lp.v_lb[i] - x_k[i])
+		ub = min(Δ, qp.v_ub[i] - x_k[i])
+		lb = max(-Δ, qp.v_lb[i] - x_k[i])
 		push!(constr_v_ub, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub)))
 		push!(constr_v_lb, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb)))
 	end
@@ -94,27 +81,27 @@ function sublp_optimize!(
 	# constr is used to retrieve the dual variable of the constraints after solution
 	constr = MOI.ConstraintIndex[]
 	for i=1:m
-		terms = get_moi_constraint_row_terms(lp.A, i)
+		terms = get_moi_constraint_row_terms(qp.A, i)
 		push!(terms, MOI.ScalarAffineTerm{T}(1.0, u[i]));
 		push!(terms, MOI.ScalarAffineTerm{T}(-1.0, v[i]));
-		if lp.c_lb[i] == lp.c_ub[i] #This means the constraint is equality
+		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
 			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, lp.b[i]), MOI.EqualTo(lp.c_lb[i])
+				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.EqualTo(qp.c_lb[i])
 			))
-		elseif lp.c_lb[i] != -Inf && lp.c_ub[i] != Inf && lp.c_lb[i] < lp.c_ub[i]
+		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
 			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, lp.b[i]), MOI.GreaterThan(lp.c_lb[i])
+				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
 			))
 			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, lp.b[i]), MOI.LessThan(lp.c_ub[i])
+				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
 			))
-		elseif lp.c_lb[i] != -Inf
+		elseif qp.c_lb[i] != -Inf
 			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, lp.b[i]), MOI.GreaterThan(lp.c_lb[i])
+				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
 			))
-		elseif lp.c_ub[i] != Inf
+		elseif qp.c_ub[i] != Inf
 			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, lp.b[i]), MOI.LessThan(lp.c_ub[i])
+				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
 			))
 		end
 		u_term = MOI.ScalarAffineTerm{T}(1.0, u[i]);
@@ -149,7 +136,7 @@ function sublp_optimize!(
 			lambda[i] = MOI.get(model, MOI.ConstraintDual(1), constr[ci])
 			ci += 1
 			# This is for a ranged constraint.
-			if lp.c_lb[i] > -Inf && lp.c_ub[i] < Inf && lp.c_lb[i] < lp.c_ub[i]
+			if qp.c_lb[i] > -Inf && qp.c_ub[i] < Inf && qp.c_lb[i] < qp.c_ub[i]
 				lambda[i] += MOI.get(model, MOI.ConstraintDual(1), constr[ci])
 				ci += 1
 			end
@@ -160,10 +147,10 @@ function sublp_optimize!(
 		mult_x_L .= MOI.get(model, MOI.ConstraintDual(1), constr_v_lb)
 		# careful because of the trust region
 		for j=1:n
-			if Xsol[j] < lp.v_ub[j] - x_k[j]
+			if Xsol[j] < qp.v_ub[j] - x_k[j]
 				mult_x_U[j] = 0.0
 			end
-			if Xsol[j] > lp.v_lb[j] - x_k[j]
+			if Xsol[j] > qp.v_lb[j] - x_k[j]
 				mult_x_L[j] = 0.0
 			end
 		end
@@ -175,14 +162,6 @@ function sublp_optimize!(
 
 	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, status
 end
-
-sublp_optimize!(slp::SlpLS, Δ) = sublp_optimize!(
-	slp.optimizer,
-	LpData(slp),
-	slp.mu_lp,
-	slp.x,
-	Δ
-)
 
 """
 	get_moi_constraint_row_terms

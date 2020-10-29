@@ -11,7 +11,7 @@ include("status.jl")
 include("parameters.jl")
 include("model.jl")
 
-include("SLP/SLP.jl")
+include("algorithms.jl")
 
 include("MOI_wrapper.jl")
 

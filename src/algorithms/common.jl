@@ -1,16 +1,23 @@
 """
-    AbstractSlpOptimizer
-
-Abstract type of SLP solvers
-"""
-abstract type AbstractSlpOptimizer end
-
-"""
-    slp_optimize!
+    compute_jacobian_matrix
     
-Empty function to run SLP algorithm
+Compute Jacobian matrix
+
+# Arguments
+- `m`: number of rows of the Jacobian matrix
+- `n`: number of columns of the Jacobian matrix
+- `j_str`: Jacobian matrix structure (coordination of the nonzero elements)
+- `dE`: nonzero element values
 """
-function slp_optimize! end
+function compute_jacobian_matrix(
+    m::Int, n::Int, j_str::Tt, dE::Tv
+) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
+	J = spzeros(m, n)
+	for i = 1:length(j_str)
+		J[j_str[i][1], j_str[i][2]] += dE[i]
+    end 
+    return J
+end
 
 """
     KT_residuals
@@ -104,6 +111,3 @@ function norm_violations(
     end
     return norm(viol, p)
 end
-
-include("line_search.jl")
-include("lp_subproblem.jl")
