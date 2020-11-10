@@ -20,7 +20,7 @@ end
 ConstraintInfo(func, set) = ConstraintInfo(func, set, nothing)
 
 mutable struct Optimizer <: MOI.AbstractOptimizer
-    inner::Union{ASMProblem,Nothing}
+    inner::Union{Model,Nothing}
 
     # Problem data.
     variable_info::Vector{VariableInfo}
@@ -1070,8 +1070,7 @@ function MOI.optimize!(model::Optimizer)
 
     if has_hessian
         # Hessian callback
-        function eval_h_cb(x, mode, rows, cols, obj_factor,
-            lambda, values)
+        function eval_h_cb(x, mode, rows, cols, obj_factor, lambda, values)
             if mode == :Structure
                 for i in 1:length(hessian_sparsity)
                     rows[i] = hessian_sparsity[i][1]
@@ -1091,9 +1090,10 @@ function MOI.optimize!(model::Optimizer)
 
     constraint_lb, constraint_ub = constraint_bounds(model)
 
-    model.inner = createASMProblem(
-        num_variables, x_l, x_u, 
-        num_constraints, constraint_lb, constraint_ub, 
+    model.inner = Model(
+        num_variables, num_constraints, 
+        x_l, x_u, 
+        constraint_lb, constraint_ub, 
         jacobian_sparsity, hessian_sparsity,
         eval_f_cb, eval_g_cb, eval_grad_f_cb, eval_jac_g_cb, eval_h_cb,
         model.options)
@@ -1106,7 +1106,7 @@ function MOI.optimize!(model::Optimizer)
     ###addOption(model.inner, "check_derivatives_for_naninf", "yes")
 
     if !has_hessian
-   	set_parameter(model.options, "hessian_type", "none")
+   	    set_parameter(model.options, "hessian_type", "none")
     end
 
     # If nothing is provided, the default starting value is 0.0.
@@ -1149,7 +1149,7 @@ function MOI.optimize!(model::Optimizer)
     model.inner.mult_x_U = [v.upper_bound_dual_start === nothing ? 0.0 : v.lower_bound_dual_start
                             for v in model.variable_info]
 
-    solveASMProblem(model.inner)
+    optimize!(model.inner)
 
     model.solve_time = time() - start_time
     return
