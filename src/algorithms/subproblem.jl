@@ -62,10 +62,17 @@ function sub_optimize!(
 		append!(obj_terms, MOI.ScalarAffineTerm.(mu, v));
 	end
 
-	# set constant term to the objective function
-	MOI.set(model,
-		MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
-		MOI.ScalarAffineFunction(obj_terms, qp.c0))
+	# set the objective function
+	if isnothing(qp.Q)
+		MOI.set(model,
+			MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+			MOI.ScalarAffineFunction(obj_terms, qp.c0))
+	else
+		obj_qp_terms = get_scalar_quadratic_terms(qp.Q)
+		MOI.set(model,
+			MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{T}}(),
+			MOI.ScalarQuadraticFunction(obj_terms, obj_qp_terms, qp.c0))
+	end
 	MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 	# Add a dummy trust-region to all variables
@@ -164,11 +171,33 @@ function sub_optimize!(
 end
 
 """
+	get_scalar_quadratic_terms
+
+Collect the quadratic terms of the objective function
+"""
+function get_scalar_quadratic_terms(Q::Tm) where {T, Tm<:AbstractSparseMatrixCSC{T,Int}}
+	terms = Array{MOI.ScalarQuadraticTerm{T},1}()
+	rows = rowvals(Q)
+	vals = nonzeros(Q)
+	m, n = size(Q)
+	for j = 1:n
+		for i in nzrange(Q, j)
+			if i == j
+				push!(terms, MOI.ScalarQuadraticTerm{T}(0.5*vals[i], rows[i], j))
+			elseif i > j
+				push!(terms, MOI.ScalarQuadraticTerm{T}(vals[i], rows[i], j))
+			end
+		end
+	end
+	return terms
+end
+
+"""
 	get_moi_constraint_row_terms
 
 Get the array of MOI constraint terms from row `i` of matrix `A`
 """
-function get_moi_constraint_row_terms(A::Tm, i::Int) where {T, Tm<:AbstractSparseMatrix{T,Int}}
+function get_moi_constraint_row_terms(A::Tm, i::Int) where {T, Tm<:AbstractSparseMatrixCSC{T,Int}}
 	Ai = A[i,:]
 	terms = Array{MOI.ScalarAffineTerm{T},1}()
 	for (ind, val) in zip(Ai.nzind, Ai.nzval)
