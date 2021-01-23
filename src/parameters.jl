@@ -4,7 +4,7 @@ Base.@kwdef mutable struct Parameters
     algorithm::String = "Line Search" # Defines the algorithm -- either Line Search or Trust Region Method (Trust Region algorithm hasn't been implemented yet)
 
     # Defines the external solver for suproblems
-    external_optimizer::Union{Nothing,DataType} = nothing
+    external_optimizer::Union{Nothing,DataType,MOI.OptimizerWithAttributes} = nothing
     
     # Whether to use approximation hessian (limited-memory), exact, or none
     hessian_type::String = "none"
