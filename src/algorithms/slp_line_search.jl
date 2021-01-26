@@ -78,7 +78,7 @@ function active_set_optimize!(slp::SlpLS)
 
     while true
 
-        if (slp.iter - 1) % 100 == 0
+        if (slp.iter - 1) % 100 == 0 && slp.options.OutputFlag != 0
             @printf("%6s", "iter")
             @printf("  %15s", "f(x_k)")
             @printf("  %15s", "ϕ(x_k)")
@@ -117,21 +117,23 @@ function active_set_optimize!(slp::SlpLS)
         compl = norm_complementarity(slp)
         sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
         
-        @printf("%6d", slp.iter)
-        @printf("  %+.8e", slp.f)
-        @printf("  %+.8e", slp.phi)
-        @printf("  %+.8e", slp.directional_derivative)
-        @printf("  %+.8e", slp.df' * slp.p)
-        @printf("  %.8e", norm(slp.p))
-        # @printf("  %.8e", norm(slp.df))
-        @printf("  %.8e", slp.mu_merit)
-        @printf("  %.8e", slp.mu_lp)
-        @printf("  %.8e", infeasibility)
-        @printf("  %.8e", prim_infeas)
-        @printf("  %.8e", dual_infeas)
-        @printf("  %.8e", compl)
-        @printf("  %.8e", sparsity_val)
-        @printf("\n")
+        if slp.options.OutputFlag != 0
+		@printf("%6d", slp.iter)
+		@printf("  %+.8e", slp.f)
+		@printf("  %+.8e", slp.phi)
+		@printf("  %+.8e", slp.directional_derivative)
+		@printf("  %+.8e", slp.df' * slp.p)
+		@printf("  %.8e", norm(slp.p))
+		# @printf("  %.8e", norm(slp.df))
+		@printf("  %.8e", slp.mu_merit)
+		@printf("  %.8e", slp.mu_lp)
+		@printf("  %.8e", infeasibility)
+		@printf("  %.8e", prim_infeas)
+		@printf("  %.8e", dual_infeas)
+		@printf("  %.8e", compl)
+		@printf("  %.8e", sparsity_val)
+		@printf("\n")
+        end
 
         # If the LP subproblem is infeasible, increase mu_lp and resolve.
         if infeasibility > 1.e-10 && slp.mu_lp < slp.options.max_mu
