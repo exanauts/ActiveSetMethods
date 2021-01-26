@@ -15,9 +15,9 @@ using Test
     include("MOI_wrapper.jl")
 end
 
-@testset "External Solver Implementation with Toy Example" begin
+@testset "External Solver Attributes Implementation with Toy Example" begin
     include("ext_solver.test")
-    @test typeof(optimizer) == MOI.OptimizerWithAttributes
+    @test typeof(optimizer_solver) == MOI.OptimizerWithAttributes
     @test isapprox(xsol, -1.0, rtol=1e-4)
     @test isapprox(ysol, -1.0, rtol=1e-4)
     @test status == MOI.LOCALLY_SOLVED
