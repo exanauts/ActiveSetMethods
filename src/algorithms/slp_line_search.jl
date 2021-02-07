@@ -149,6 +149,15 @@ function active_set_optimize!(slp::SlpLS)
             slp.ret = 0
             break
         end
+        
+        # Iteration counter limit
+        if slp.iter >= slp.options.max_iter
+            slp.ret = -1
+            if norm_violations(slp, slp.x) <= slp.options.tol_infeas
+                slp.ret = 6
+            end
+            break
+        end
 
         # step size computation
         is_valid_step = compute_alpha(slp)
@@ -171,15 +180,7 @@ function active_set_optimize!(slp::SlpLS)
         # @show slp.lambda
         # @show slp.mult_x_U
         # @show slp.mult_x_L
-
-        # Iteration counter limit
-        if slp.iter >= slp.options.max_iter
-            slp.ret = -1
-            if norm_violations(slp, slp.x) <= slp.options.tol_infeas
-                slp.ret = 6
-            end
-            break
-        end
+        
         slp.iter += 1
     end
 
