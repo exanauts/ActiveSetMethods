@@ -1,5 +1,3 @@
-push!(LOAD_PATH, "/home/ssadat/projects/Nonlinear_Optimization/ActiveSetMethods/src")
-
 using ActiveSetMethods
 using GLPK
 using Test
