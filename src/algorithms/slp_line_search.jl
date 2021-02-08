@@ -113,7 +113,7 @@ function active_set_optimize!(slp::SlpLS)
         slp.directional_derivative = compute_derivative(slp)
 
         #prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
-        prim_infeas = norm(slp.dE, Inf) 
+        prim_infeas = norm_violations(slp, Inf)
         dual_infeas = KT_residuals(slp)
         compl = norm_complementarity(slp)
         sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
