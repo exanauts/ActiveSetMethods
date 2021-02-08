@@ -175,7 +175,7 @@ end
 
 Collect the quadratic terms of the objective function
 """
-function get_scalar_quadratic_terms(Q::Tm) where {T, Tm<:AbstractSparseMatrixCSC{T,Int}}
+function get_scalar_quadratic_terms(Q::Tm) where {T, Tm<:AbstractSparseMatrix{T,Int}}
 	terms = Array{MOI.ScalarQuadraticTerm{T},1}()
 	rows = rowvals(Q)
 	vals = nonzeros(Q)
@@ -197,7 +197,7 @@ end
 
 Get the array of MOI constraint terms from row `i` of matrix `A`
 """
-function get_moi_constraint_row_terms(A::Tm, i::Int) where {T, Tm<:AbstractSparseMatrixCSC{T,Int}}
+function get_moi_constraint_row_terms(A::Tm, i::Int) where {T, Tm<:AbstractSparseMatrix{T,Int}}
 	Ai = A[i,:]
 	terms = Array{MOI.ScalarAffineTerm{T},1}()
 	for (ind, val) in zip(Ai.nzind, Ai.nzval)
