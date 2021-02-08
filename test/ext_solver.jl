@@ -9,9 +9,17 @@ xsol = 0.0
 ysol = 0.0
 status = nothing
 
-optimizer_solver = try optimizer_with_attributes(ActiveSetMethods.Optimizer,"external_optimizer"=>optimizer_with_attributes(GLPK.Optimizer,"msg_lev"=>GLPK.MSG_OFF)); catch; ActiveSetMethods.Optimizer; end
+optimizer_solver = try 
+			optimizer_with_attributes(ActiveSetMethods.Optimizer,"external_optimizer"=>optimizer_with_attributes(GLPK.Optimizer,"msg_lev"=>GLPK.MSG_OFF)); 
+		    catch; 
+		    	ActiveSetMethods.Optimizer; 
+		    end
 
-model = try Model(optimizer_solver); catch; Model(ActiveSetMethods.Optimizer); end
+model = try 
+	   Model(optimizer_solver); 
+	 catch; 
+	   Model(ActiveSetMethods.Optimizer); 
+	 end
 
 if typeof(optimizer_solver) == DataType 
 set_optimizer_attribute(model, "external_optimizer", GLPK.Optimizer)
@@ -29,7 +37,13 @@ println("________________________________________");
 print(model);
 println("________________________________________");
 
-if (typeof(optimizer_solver) == MOI.OptimizerWithAttributes) status = try JuMP.optimize!(model); termination_status(model) catch; nothing end end
+if (typeof(optimizer_solver) == MOI.OptimizerWithAttributes) status = try 
+										JuMP.optimize!(model); 
+										termination_status(model) 
+								         catch; 
+								         	nothing 
+								         end
+end
 
 if status != nothing 
 xsol = JuMP.value.(X)
