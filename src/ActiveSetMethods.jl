@@ -6,7 +6,7 @@ import MathOptInterface
 
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
-statistics = Dict()
+
 export statistics
 
 include("status.jl")

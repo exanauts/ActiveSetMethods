@@ -25,6 +25,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     optimizer::MOI.AbstractOptimizer
 
     options::Parameters
+    statistics::Dict{String,Any}
 
     iter::Int
     ret::Int
@@ -49,6 +50,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.alpha = 1.0
 
         slp.options = problem.parameters
+        slp.statistics = problem.statistics
         slp.optimizer = MOI.instantiate(slp.options.external_optimizer)
 
         slp.iter = 1
@@ -75,20 +77,20 @@ function active_set_optimize!(slp::SlpLS)
 
     slp.iter = 1
     if slp.options.StatisticsFlag != 0
-    	statistics["f(x)"] = Array{Float64,1}()
-    	statistics["ϕ(x_k))"] = Array{Float64,1}()
-    	statistics["D(ϕ,p)"] = Array{Float64,1}()
-    	statistics["|p|"] = Array{Float64,1}()
-    	statistics["alpha"] = Array{Float64,1}()
-    	statistics["μ_merit"] = Array{Float64,1}()
-    	statistics["μ_lp"] = Array{Float64,1}()
-    	statistics["m(p)"] = Array{Float64,1}()
-    	statistics["inf_pr"] = Array{Float64,1}()
-    	statistics["inf_du"] = Array{Float64,1}()
-    	statistics["compl"] = Array{Float64,1}()
-    	statistics["Sparsity"] = Array{Float64,1}()
-    	statistics["LP_time"] = Array{Float64,1}()
-    	statistics["iter_time"] = Array{Float64,1}()    	
+    	slp.statistics["f(x)"] = Array{Float64,1}()
+    	slp.statistics["ϕ(x_k))"] = Array{Float64,1}()
+    	slp.statistics["D(ϕ,p)"] = Array{Float64,1}()
+    	slp.statistics["|p|"] = Array{Float64,1}()
+    	slp.statistics["alpha"] = Array{Float64,1}()
+    	slp.statistics["μ_merit"] = Array{Float64,1}()
+    	slp.statistics["μ_lp"] = Array{Float64,1}()
+    	slp.statistics["m(p)"] = Array{Float64,1}()
+    	slp.statistics["inf_pr"] = Array{Float64,1}()
+    	slp.statistics["inf_du"] = Array{Float64,1}()
+    	slp.statistics["compl"] = Array{Float64,1}()
+    	slp.statistics["Sparsity"] = Array{Float64,1}()
+    	slp.statistics["LP_time"] = Array{Float64,1}()
+    	slp.statistics["iter_time"] = Array{Float64,1}()    	
     end
 
     while true
@@ -119,7 +121,7 @@ function active_set_optimize!(slp::SlpLS)
         slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
         if slp.options.StatisticsFlag != 0
-	    	append!(statistics["LP_time"],time()-LP_time_start)
+	    	append!(slp.statistics["LP_time"],time()-LP_time_start)
     	end
 
         # update multipliers
@@ -156,17 +158,17 @@ function active_set_optimize!(slp::SlpLS)
         end
         
         if slp.options.StatisticsFlag != 0
-	    	append!(statistics["f(x)"],slp.f)
-	    	append!(statistics["ϕ(x_k))"],slp.phi)
-	    	append!(statistics["D(ϕ,p)"],slp.directional_derivative)
-	    	append!(statistics["|p|"],norm(slp.p))
-	    	append!(statistics["μ_merit"],slp.mu_merit)
-	    	append!(statistics["μ_lp"],slp.mu_lp)
-	    	append!(statistics["m(p)"],infeasibility)
-	    	append!(statistics["inf_pr"],prim_infeas)
-	    	append!(statistics["inf_du"],dual_infeas)
-	    	append!(statistics["compl"],compl)
-	    	append!(statistics["Sparsity"],sparsity_val)
+	    	append!(slp.statistics["f(x)"],slp.f)
+	    	append!(slp.statistics["ϕ(x_k))"],slp.phi)
+	    	append!(slp.statistics["D(ϕ,p)"],slp.directional_derivative)
+	    	append!(slp.statistics["|p|"],norm(slp.p))
+	    	append!(slp.statistics["μ_merit"],slp.mu_merit)
+	    	append!(slp.statistics["μ_lp"],slp.mu_lp)
+	    	append!(slp.statistics["m(p)"],infeasibility)
+	    	append!(slp.statistics["inf_pr"],prim_infeas)
+	    	append!(slp.statistics["inf_du"],dual_infeas)
+	    	append!(slp.statistics["compl"],compl)
+	    	append!(slp.statistics["Sparsity"],sparsity_val)
     	end
 
         # If the LP subproblem is infeasible, increase mu_lp and resolve.
@@ -202,12 +204,12 @@ function active_set_optimize!(slp::SlpLS)
         if !is_valid_step && slp.iter < slp.options.max_iter
             slp.iter += 1
             if slp.options.StatisticsFlag != 0
-	    	append!(statistics["alpha"],0.0)
+	    	append!(slp.statistics["alpha"],0.0)
     	    end
             continue
         end
         if slp.options.StatisticsFlag != 0
-	    	append!(statistics["alpha"],slp.alpha)
+	    	append!(slp.statistics["alpha"],slp.alpha)
     	end
         # @show slp.alpha
 
@@ -222,13 +224,13 @@ function active_set_optimize!(slp::SlpLS)
         # @show slp.mult_x_L
         
         if slp.options.StatisticsFlag != 0
-	    append!(statistics["iter_time"],time()-iter_time_start);
+	    append!(slp.statistics["iter_time"],time()-iter_time_start);
     	end
         
         slp.iter += 1
     end
     if slp.options.StatisticsFlag != 0
-	statistics["iter"] = slp.iter
+	slp.statistics["iter"] = slp.iter
     end
     slp.problem.obj_val = slp.problem.eval_f(slp.x)
     slp.problem.status = Int(slp.ret)
