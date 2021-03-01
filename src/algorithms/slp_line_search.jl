@@ -121,7 +121,7 @@ function active_set_optimize!(slp::SlpLS)
         slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
         if slp.options.StatisticsFlag != 0
-	    	append!(slp.statistics["LP_time"],time()-LP_time_start)
+	    	push!(slp.statistics["LP_time"],time()-LP_time_start)
     	end
 
         # update multipliers
@@ -158,17 +158,17 @@ function active_set_optimize!(slp::SlpLS)
         end
         
         if slp.options.StatisticsFlag != 0
-	    	append!(slp.statistics["f(x)"],slp.f)
-	    	append!(slp.statistics["ϕ(x_k))"],slp.phi)
-	    	append!(slp.statistics["D(ϕ,p)"],slp.directional_derivative)
-	    	append!(slp.statistics["|p|"],norm(slp.p))
-	    	append!(slp.statistics["μ_merit"],slp.mu_merit)
-	    	append!(slp.statistics["μ_lp"],slp.mu_lp)
-	    	append!(slp.statistics["m(p)"],infeasibility)
-	    	append!(slp.statistics["inf_pr"],prim_infeas)
-	    	append!(slp.statistics["inf_du"],dual_infeas)
-	    	append!(slp.statistics["compl"],compl)
-	    	append!(slp.statistics["Sparsity"],sparsity_val)
+	    	push!(slp.statistics["f(x)"],slp.f)
+	    	push!(slp.statistics["ϕ(x_k))"],slp.phi)
+	    	push!(slp.statistics["D(ϕ,p)"],slp.directional_derivative)
+	    	push!(slp.statistics["|p|"],norm(slp.p))
+	    	push!(slp.statistics["μ_merit"],slp.mu_merit)
+	    	push!(slp.statistics["μ_lp"],slp.mu_lp)
+	    	push!(slp.statistics["m(p)"],infeasibility)
+	    	push!(slp.statistics["inf_pr"],prim_infeas)
+	    	push!(slp.statistics["inf_du"],dual_infeas)
+	    	push!(slp.statistics["compl"],compl)
+	    	push!(slp.statistics["Sparsity"],sparsity_val)
     	end
 
         # If the LP subproblem is infeasible, increase mu_lp and resolve.
@@ -204,12 +204,12 @@ function active_set_optimize!(slp::SlpLS)
         if !is_valid_step && slp.iter < slp.options.max_iter
             slp.iter += 1
             if slp.options.StatisticsFlag != 0
-	    	append!(slp.statistics["alpha"],0.0)
+	    	push!(slp.statistics["alpha"],0.0)
     	    end
             continue
         end
         if slp.options.StatisticsFlag != 0
-	    	append!(slp.statistics["alpha"],slp.alpha)
+	    	push!(slp.statistics["alpha"],slp.alpha)
     	end
         # @show slp.alpha
 
@@ -224,7 +224,7 @@ function active_set_optimize!(slp::SlpLS)
         # @show slp.mult_x_L
         
         if slp.options.StatisticsFlag != 0
-	    append!(slp.statistics["iter_time"],time()-iter_time_start);
+	    push!(slp.statistics["iter_time"],time()-iter_time_start);
     	end
         
         slp.iter += 1
