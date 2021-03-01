@@ -88,10 +88,7 @@ function active_set_optimize!(slp::SlpLS)
     	statistics["compl"] = Array{Float64,1}()
     	statistics["Sparsity"] = Array{Float64,1}()
     	statistics["LP_time"] = Array{Float64,1}()
-    	statistics["iter_time"] = Array{Float64,1}()
-    	#statistics["total_time"] = Array{Float64,1}()
-    	#statistics["iter"] = Array{Float64,1}()
-    	
+    	statistics["iter_time"] = Array{Float64,1}()    	
     end
 
     while true
