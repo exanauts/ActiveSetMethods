@@ -7,8 +7,6 @@ import MathOptInterface
 const MOI = MathOptInterface
 const MOIU = MathOptInterface.Utilities
 
-export statistics
-
 include("status.jl")
 include("parameters.jl")
 include("model.jl")

@@ -26,6 +26,3 @@ Abstract type of SLP solvers
 abstract type AbstractSlpOptimizer <: AbstractOptimizer end
 
 include("algorithms/slp_line_search.jl")
-
-" solution statistics "
-statistics = Dict{String,Any}()

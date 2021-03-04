@@ -56,7 +56,7 @@ mutable struct Model{T,Tv,Tt}
         eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h, 
         nothing, :Min,
         parameters,
-        statistics
+        Dict{String,Any}()
     )
 end
 
