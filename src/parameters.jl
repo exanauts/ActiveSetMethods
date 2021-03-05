@@ -9,8 +9,9 @@ Base.@kwdef mutable struct Parameters
     # Whether to use approximation hessian (limited-memory), exact, or none
     hessian_type::String = "none"
     
-    # Output flag to show the output message
+    # flags
     OutputFlag::Int = 1	   # 0 supresses all outputs except warnings and errors
+    StatisticsFlag::Int = 1	   # 0 supresses collection of statistics parameters
 
     # Algorithmic parameters
     tol_residual::Float64 = 1.e-6 # tolerance for Kuhn-Tucker residual
