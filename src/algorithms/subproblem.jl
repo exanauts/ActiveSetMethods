@@ -29,24 +29,8 @@ function sub_optimize!(
 	mu::T,
 	x_k::Tv,
 	Δ::T,
-	tol_error::Float64
 ) where {T, Tv, Tm}
 
-	start_time = time();
-	# drop small values to avoid numerical issues
-	
-	droptol!(qp.A, tol_error);
-	#qp.b[abs.(qp.b) .<= tol_error] .= zero(eltype(qp.b))
-	qp.c[abs.(qp.c) .<= tol_error] .= zero(eltype(qp.c))
-	#qp.c_lb[abs.(qp.c_lb) .<= tol_error] .= zero(eltype(qp.c_lb))
-	#qp.c_ub[abs.(qp.c_ub) .<= tol_error] .= zero(eltype(qp.c_ub))
-	
-	#qp.v_lb[abs.(qp.v_lb) .< tol_error] .= zero(eltype(qp.v_lb))
-	#qp.v_ub[abs.(qp.v_ub) .< tol_error] .= zero(eltype(qp.v_ub))
-	
-	println("-----> LP OPT1 time: $(time()-start_time)"); start_time = time();
-	#droptol!(qp.b, tol_error);
-	
 	# empty optimizer just in case
 	MOI.empty!(model)
 
@@ -69,7 +53,6 @@ function sub_optimize!(
 	for i in 1:n
 		push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
 	end
-  println("-----> LP OPT2 time: $(time()-start_time)"); start_time = time();
 
 	# Slacks v and u are added only for constrained problems.
 	if m > 0
@@ -91,23 +74,14 @@ function sub_optimize!(
 	for i = 1:n
 		ub = min(Δ, qp.v_ub[i] - x_k[i])
 		lb = max(-Δ, qp.v_lb[i] - x_k[i])
-		ub = (ub <= tol_error) ? 0.0 : ub;
-		lb = (abs(lb) <= tol_error) ? 0.0 : lb;
 		push!(constr_v_ub, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub)))
 		push!(constr_v_lb, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb)))
 	end
-  println("-----> LP OPT3 time: $(time()-start_time)"); start_time = time();
 	
 	# constr is used to retrieve the dual variable of the constraints after solution
 	constr = MOI.ConstraintIndex[]
-	#termm = get_moi_constraint_row_terms.(qp.A, :) 
-	#println("*****", terms);
-	#=
 	for i=1:m
-		terms = get_moi_constraint_row_terms(qp.A, i) 
-		#terms = MOI.ScalarAffineTerm.(qp.A[i,:].nzval, MOI.VariableIndex.(qp.A[i,:].nzind))
-		#terms = MathOptInterface.ScalarAffineTerm{Float64}[MathOptInterface.ScalarAffineTerm{Float64}(1.0, MathOptInterface.VariableIndex(18554))]
-		##println("*****", terms); #terms = 0;
+		terms = get_moi_constraint_row_terms(qp.A, i)
 		push!(terms, MOI.ScalarAffineTerm{T}(1.0, u[i]));
 		push!(terms, MOI.ScalarAffineTerm{T}(-1.0, v[i]));
 		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
@@ -136,93 +110,10 @@ function sub_optimize!(
 		v_term = MOI.ScalarAffineTerm{T}(1.0, v[i]);
 		MOI.Utilities.normalize_and_add_constraint(model,
 			MOI.ScalarAffineFunction([v_term], 0.0), MOI.GreaterThan(0.0));
-	end=#
-	
-	#=for i=1:m
-		#terms = get_moi_constraint_row_terms(qp.A, i) 
-		#terms = MOI.ScalarAffineTerm.(qp.A[i,:].nzval, MOI.VariableIndex.(qp.A[i,:].nzind))
-		#terms = MathOptInterface.ScalarAffineTerm{Float64}[MathOptInterface.ScalarAffineTerm{Float64}(1.0, MathOptInterface.VariableIndex(18554))]
-		##println("*****", terms); #terms = 0;
-		terms = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([qp.A[i,:].nzval;1.0;-1.0], [x[qp.A[i,:].nzind];u[i];v[i]]), 0.0);
-		#push!(terms, MOI.ScalarAffineTerm{T}(1.0, u[i]));
-		#push!(terms, MOI.ScalarAffineTerm{T}(-1.0, v[i]));
-		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
-			push!(constr, MOI.add_constraint(model, terms, MOI.EqualTo(qp.c_lb[i]-qp.b[i])))
-                       #push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(qp.A[i,:].nzval, x[qp.A[i,:].nzind]), 0.0), #qp.b[i]),
-                      #MOI.EqualTo(qp.c_lb[i]-qp.b[i])))
-			#push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-			#	MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.EqualTo(qp.c_lb[i])
-			#))
-		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
-			push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(qp.A[i,:].nzval, x[qp.A[i,:].nzind]), 0.0), #qp.b[i]),
-                      MOI.GreaterThan(qp.c_lb[i]-qp.b[i])))
-               	push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(qp.A[i,:].nzval, x[qp.A[i,:].nzind]), 0.0), #qp.b[i]),
-                      MOI.LessThan(qp.c_ub[i]-qp.b[i])))
-			#=push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
-			))
-			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
-			))=#
-		elseif qp.c_lb[i] != -Inf
-			push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(qp.A[i,:].nzval, x[qp.A[i,:].nzind]), 0.0), #qp.b[i]),
-                      MOI.GreaterThan(qp.c_lb[i]-qp.b[i])))
-			#push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-			#	MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
-			#))
-		elseif qp.c_ub[i] != Inf
-			push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(qp.A[i,:].nzval, x[qp.A[i,:].nzind]), 0.0), #qp.b[i]),
-                      MOI.LessThan(qp.c_ub[i]-qp.b[i])))
-                      #push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(1.0, [x[1],x[2],x[3]]), 0.0), #qp.b[i]),
-                      #MOI.LessThan(qp.c_ub[i]-qp.b[i])))
-			#push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0,2.0,3.0], [x[1],x[2],x[3]]), qp.b[i]),
-                      #MOI.LessThan(qp.c_ub[i])))
-			#push!(constr, MOI.add_constraint(model, MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(qp.A[i,:].nzval, x[qp.A[i,:].nzind]), qp.b[i]),
-                      #MOI.LessThan(qp.c_ub[i])))
-			
-			
-			#MOI.Utilities.normalize_and_add_constraint(model,
-			#	MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
-			#))
-		end
-		MOI.add_constraint(model, MOI.SingleVariable(u[i]), MOI.GreaterThan(0.0))
-		MOI.add_constraint(model, MOI.SingleVariable(v[i]), MOI.GreaterThan(0.0))
-		#u_term = MOI.ScalarAffineTerm{T}(1.0, u[i]);
-		#MOI.Utilities.normalize_and_add_constraint(model, 
-		#	MOI.ScalarAffineFunction([u_term], 0.0), MOI.GreaterThan(0.0));
-		#v_term = MOI.ScalarAffineTerm{T}(1.0, v[i]);
-		#MOI.Utilities.normalize_and_add_constraint(model,
-		#	MOI.ScalarAffineFunction([v_term], 0.0), MOI.GreaterThan(0.0));
-	end=#
-	
-	for i=1:m
-		terms = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([qp.A[i,:].nzval;1.0;-1.0], [x[qp.A[i,:].nzind];u[i];v[i]]), 0.0);
-		c_ub = qp.c_ub[i]-qp.b[i];
-		c_lb = qp.c_lb[i]-qp.b[i];
-		
-		c_ub = (c_ub <= tol_error) ? 0.0 : c_ub;
-		c_lb = (abs(c_lb) <= tol_error) ? 0.0 : c_lb;
-		
-		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
-			push!(constr, MOI.add_constraint(model, terms, MOI.EqualTo(c_lb)))
-		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
-			push!(constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
-               	push!(constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
-		elseif qp.c_lb[i] != -Inf
-			push!(constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
-		elseif qp.c_ub[i] != Inf
-			push!(constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
-		end
-		MOI.add_constraint(model, MOI.SingleVariable(u[i]), MOI.GreaterThan(0.0))
-		MOI.add_constraint(model, MOI.SingleVariable(v[i]), MOI.GreaterThan(0.0))
 	end
-	
-   println("-----> LP OPT4 time: $(time()-start_time)"); start_time = time();
 
 	MOI.optimize!(model)
-	TerminationStatus = MOI.get(model, MOI.TerminationStatus())
-	PrimalStatus = MOI.get(model, MOI.PrimalStatus())
-	ResultCount = MOI.get(model, MOI.ResultCount())
+	status = MOI.get(model, MOI.TerminationStatus())
 
 	# TODO: These can be part of data.
 	Xsol = Tv(undef, n)
@@ -230,13 +121,8 @@ function sub_optimize!(
 	mult_x_U = Tv(undef, n)
 	mult_x_L = Tv(undef, n)
 	infeasibility = 0.0
-   println("-----> LP OPT5 time: $(time()-start_time)");
-   println("-----> TerminationStatus: $(MOI.get(model, MOI.TerminationStatus()))");
-   println("-----> PrimalStatus: $(MOI.get(model, MOI.PrimalStatus()))");
-   println("-----> DualStatus: $(MOI.get(model, MOI.DualStatus()))");
-   	
 
-	if ResultCount == 1 && !(PrimalStatus in [MOI.INFEASIBLE_POINT;MOI.NO_SOLUTION;MOI.INFEASIBILITY_CERTIFICATE])
+	if status == MOI.OPTIMAL
 		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
 		if m > 0
 			Usol = MOI.get(model, MOI.VariablePrimal(), u);
@@ -268,26 +154,13 @@ function sub_optimize!(
 				mult_x_L[j] = 0.0
 			end
 		end
-	elseif TerminationStatus == MOI.DUAL_INFEASIBLE
+	elseif status == MOI.DUAL_INFEASIBLE
 		@error "Trust region must be employed."
 	else
-		@error "Unexpected status: $(TerminationStatus)"
+		@error "Unexpected status: $(status)"
 	end
-	
-	simplex = try 
-			MOI.get(model, MOI.SimplexIterations()); 
-		    catch; 
-		    	0.0; 
-		    end
-		    
-	barrier = try 
-			MOI.get(model, MOI.BarrierIterations()); 
-		    catch; 
-		    	0.0; 
-		    end
-		    
 
-	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, TerminationStatus, simplex, barrier
+	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, status
 end
 
 """
