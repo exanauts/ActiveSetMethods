@@ -273,8 +273,21 @@ function sub_optimize!(
 	else
 		@error "Unexpected status: $(TerminationStatus)"
 	end
+	
+	simplex = try 
+			MOI.get(model, MOI.SimplexIterations()); 
+		    catch; 
+		    	0.0; 
+		    end
+		    
+	barrier = try 
+			MOI.get(model, MOI.BarrierIterations()); 
+		    catch; 
+		    	0.0; 
+		    end
+		    
 
-	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, TerminationStatus, MOI.get(model, MOI.SimplexIterations()), MOI.get(model, MOI.BarrierIterations())
+	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, TerminationStatus, simplex, barrier
 end
 
 """
