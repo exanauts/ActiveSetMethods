@@ -12,10 +12,27 @@ Compute Jacobian matrix
 function compute_jacobian_matrix(
     m::Int, n::Int, j_str::Tt, dE::Tv
 ) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
+	start_time = time();
 	J = spzeros(m, n)
 	for i = 1:length(j_str)
 		J[j_str[i][1], j_str[i][2]] += dE[i]
-    end 
+    	end 
+    println("-----> Jacobian time: $(time()-start_time)")
+    #droptol!(J, tol_error);
+    return J
+end
+
+function compute_jacobian_matrix(
+    m::Int, n::Int, j_row::Tv, j_col::Tv, dE::Tv
+) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
+	start_time = time();
+	#=J = spzeros(m, n)
+	for i = 1:length(j_str)
+		J[j_str[i][1], j_str[i][2]] += dE[i]
+    	end =#
+    J = sparse(j_row, j_col, dE);
+    println("-----> Jacobian time: $(time()-start_time)")
+    #droptol!(J, tol_error);
     return J
 end
 
@@ -35,11 +52,19 @@ Compute Kuhn-Turck residuals
 function KT_residuals(
     df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, Jac::Tm
 ) where {T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
+start_time = time();
     KT_res = norm(df - Jac' * lambda - mult_x_U - mult_x_L)
+println("-----> KT_residuals1 time: $(time()-start_time)"); start_time = time();
     scalar = max(1.0, norm(df))
+println("-----> KT_residuals2 time: $(time()-start_time)"); start_time = time();
+(m,n) = size(Jac);
+
+scalar = maximum([scalar;abs.(lambda) .* ((Jac .* Jac) * ones(n,1))]);
+#=
     for i = 1:size(Jac,1)
         scalar = max(scalar, abs(lambda[i]) * norm(Jac[i,:]))
-    end
+    end=#
+println("-----> KT_residuals3 time: $(time()-start_time)"); start_time = time();
     return KT_res / scalar
 end
 
