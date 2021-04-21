@@ -290,8 +290,8 @@ sub_optimize!(slp::SlpLS, Δ) = sub_optimize!(
 	LpData(slp),
 	slp.mu_lp,
 	slp.x,
-	Δ,
-	slp.options.tol_error
+	Δ #,
+	#slp.options.tol_error
 )
 
 """
