@@ -63,6 +63,8 @@ function sub_optimize!(
 	# objective function
 	obj_terms = Array{MOI.ScalarAffineTerm{T},1}();
 	for i in 1:n
+		#c = qp.c[i];
+		#c = (abs(qp.c[i]) <= tol_error) ? 0.0 : qp.c[i];
 		push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
 	end
   println("-----> LP OPT2 time: $(time()-start_time)"); start_time = time();
@@ -87,7 +89,7 @@ function sub_optimize!(
 	for i = 1:n
 		ub = min(Δ, qp.v_ub[i] - x_k[i])
 		lb = max(-Δ, qp.v_lb[i] - x_k[i])
-		ub = (ub <= tol_error) ? 0.0 : ub;
+		ub = (abs(ub) <= tol_error) ? 0.0 : ub;
 		lb = (abs(lb) <= tol_error) ? 0.0 : lb;
 		push!(constr_v_ub, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub)))
 		push!(constr_v_lb, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb)))
@@ -102,7 +104,7 @@ function sub_optimize!(
 		c_ub = qp.c_ub[i]-qp.b[i];
 		c_lb = qp.c_lb[i]-qp.b[i];
 		
-		c_ub = (c_ub <= tol_error) ? 0.0 : c_ub;
+		c_ub = (abs(c_ub) <= tol_error) ? 0.0 : c_ub;
 		c_lb = (abs(c_lb) <= tol_error) ? 0.0 : c_lb;
 		
 		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
