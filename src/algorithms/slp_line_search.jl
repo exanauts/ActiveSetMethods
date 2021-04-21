@@ -135,6 +135,7 @@ function active_set_optimize!(slp::SlpLS)
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
         #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ)
+        println("n = ", length(slp.x));
         slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
         if slp.options.StatisticsFlag != 0

@@ -35,7 +35,9 @@ function sub_optimize!(
 	MOI.empty!(model)
 
 	# dimension of LP
+	println(size(qp.A))
 	m, n = size(qp.A)
+	n = length(qp.c); 
 	@assert n > 0
 	@assert m >= 0
 	@assert length(qp.c) == n

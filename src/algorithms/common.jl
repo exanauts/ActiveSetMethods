@@ -17,8 +17,10 @@ function compute_jacobian_matrix(
 	for i = 1:length(j_str)
 		J[j_str[i][1], j_str[i][2]] += dE[i]
     	end 
-    #println("-----> Jacobian time: $(time()-start_time)")
+    println("-----> Jacobian time: $(time()-start_time)")
     #droptol!(J, tol_error);
+    println("-----> Jacobian: ", J);
+    println("-----> j_str: ", j_str);
     return J
 end
 
@@ -31,7 +33,9 @@ function compute_jacobian_matrix(
 		J[j_str[i][1], j_str[i][2]] += dE[i]
     	end =#
     J = sparse(j_row, j_col, dE);
+    #J = length(J) > 0 ? J : spzeros(m, n)
     println("-----> Jacobian time: $(time()-start_time)")
+    #println("-----> Jacobian: ", J);
     #droptol!(J, tol_error);
     return J
 end
@@ -53,7 +57,7 @@ function KT_residuals(
     df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, Jac::Tm
 ) where {T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
 start_time = time();
-    KT_res = norm(df - Jac' * lambda - mult_x_U - mult_x_L)
+    KT_res = length(Jac) > 0 ? norm(df - Jac' * lambda - mult_x_U - mult_x_L) : norm(df - mult_x_U - mult_x_L);
 println("-----> KT_residuals1 time: $(time()-start_time)"); start_time = time();
     scalar = max(1.0, norm(df))
 println("-----> KT_residuals2 time: $(time()-start_time)"); start_time = time();
