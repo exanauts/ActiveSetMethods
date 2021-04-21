@@ -17,7 +17,7 @@ function compute_jacobian_matrix(
 	for i = 1:length(j_str)
 		J[j_str[i][1], j_str[i][2]] += dE[i]
     	end 
-    println("-----> Jacobian time: $(time()-start_time)")
+    #println("-----> Jacobian time: $(time()-start_time)")
     #droptol!(J, tol_error);
     return J
 end
