@@ -14,7 +14,7 @@ Base.@kwdef mutable struct Parameters
     StatisticsFlag::Int = 1	   # 0 supresses collection of statistics parameters
 
     # Algorithmic parameters
-    tol_error::Float64 = 1.e-16    # tolerance for error
+    tol_error::Float64 = 1.e-20    # tolerance for error
     tol_residual::Float64 = 1.e-6 # tolerance for Kuhn-Tucker residual
     tol_infeas::Float64 = 1.e-6   # tolerance for constraint violation
     max_iter::Int = 1000          # Defines the maximum number of iterations

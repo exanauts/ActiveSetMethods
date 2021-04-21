@@ -134,9 +134,9 @@ function active_set_optimize!(slp::SlpLS)
    println("-----> check2 time: $(time()-start_time)"); start_time = time(); 
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ)
-        println("n = ", length(slp.x));
-        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
+        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ)
+        #println("n = ", length(slp.x));
+        #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
         if slp.options.StatisticsFlag != 0
 	    	push!(slp.problem.statistics["LP_time"],time()-LP_time_start)
@@ -196,8 +196,8 @@ function active_set_optimize!(slp::SlpLS)
 	    	push!(slp.problem.statistics["inf_du"],dual_infeas)
 	    	push!(slp.problem.statistics["compl"],compl)
 	    	push!(slp.problem.statistics["Sparsity"],sparsity_val)
-	    	#push!(slp.problem.statistics["LP_simplex_iter"],LP_simplex_iter)
-	    	#push!(slp.problem.statistics["LP_barrier_iter"],LP_barrier_iter)
+	    	push!(slp.problem.statistics["LP_simplex_iter"],LP_simplex_iter)
+	    	push!(slp.problem.statistics["LP_barrier_iter"],LP_barrier_iter)
     	end
 
         # If the LP subproblem is infeasible, increase mu_lp and resolve.
@@ -291,8 +291,8 @@ sub_optimize!(slp::SlpLS, Δ) = sub_optimize!(
 	LpData(slp),
 	slp.mu_lp,
 	slp.x,
-	Δ #,
-	#slp.options.tol_error
+	Δ,
+	slp.options.tol_error
 )
 
 """
