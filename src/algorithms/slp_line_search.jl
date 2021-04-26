@@ -106,6 +106,9 @@ function active_set_optimize!(slp::SlpLS)
     	slp.problem.statistics["LP_simplex_iter"] = Array{Float64,1}()
     	slp.problem.statistics["LP_barrier_iter"] = Array{Float64,1}()	
     end
+    
+    eval_functions!(slp)
+    qp = create_model!(slp, Δ)
 
     while true
 	iter_time_start = time();
@@ -134,7 +137,8 @@ function active_set_optimize!(slp::SlpLS)
    println("-----> check2 time: $(time()-start_time)"); start_time = time(); 
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ)
+        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ, qp)
+        #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ)
         #println("n = ", length(slp.x));
         #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
@@ -200,6 +204,12 @@ function active_set_optimize!(slp::SlpLS)
 	    	push!(slp.problem.statistics["LP_barrier_iter"],LP_barrier_iter)
     	end
 
+        # LP subproblem is infeasible or Numerical issues
+        if status != MOI.FEASIBLE_POINT
+            slp.ret = 2
+            break
+        end
+        
         # If the LP subproblem is infeasible, increase mu_lp and resolve.
         if infeasibility > 1.e-10 && slp.mu_lp < slp.options.max_mu
             slp.mu_lp = max(slp.options.max_mu, slp.mu_lp*10)
@@ -223,6 +233,7 @@ function active_set_optimize!(slp::SlpLS)
             end
             break
         end
+        
 
         # step size computation
         is_valid_step = compute_alpha(slp)
@@ -241,7 +252,7 @@ function active_set_optimize!(slp::SlpLS)
         if slp.options.StatisticsFlag != 0
 	    	push!(slp.problem.statistics["alpha"],slp.alpha)
     	end
-        # @show slp.alpha
+        @show slp.alpha
 
         # update primal points
         slp.x += slp.alpha .* slp.p
@@ -272,21 +283,66 @@ function active_set_optimize!(slp::SlpLS)
 end
 
 function LpData(slp::SlpLS)
-	A = compute_jacobian_matrix(slp)
+	#A = compute_jacobian_matrix(slp)
 	return QpData(
         MOI.MIN_SENSE,
         nothing,
 		slp.df,
 		slp.f,
-		A,
+		slp.dE,
 		slp.E,
 		slp.problem.g_L,
 		slp.problem.g_U,
 		slp.problem.x_L,
-		slp.problem.x_U)
+		slp.problem.x_U,
+		slp.j_row,
+		slp.j_col,
+		MOI.ConstraintIndex[],
+		MOI.ConstraintIndex[],
+		MOI.ConstraintIndex[])
+		#nothing,nothing,nothing)
+end
+
+function LpData(slp::SlpLS, qp)
+	#A = compute_jacobian_matrix(slp)
+	return QpData(
+        MOI.MIN_SENSE,
+        nothing,
+		slp.df,
+		slp.f,
+		slp.dE,
+		slp.E,
+		slp.problem.g_L,
+		slp.problem.g_U,
+		slp.problem.x_L,
+		slp.problem.x_U,
+		slp.j_row,
+		slp.j_col,
+		qp.constr_v_ub,
+		qp.constr_v_lb,
+		qp.constr)
+		#nothing,nothing,nothing)
 end
 
 sub_optimize!(slp::SlpLS, Δ) = sub_optimize!(
+	slp.optimizer,
+	LpData(slp),
+	slp.mu_lp,
+	slp.x,
+	Δ,
+	slp.options.tol_error
+)
+
+sub_optimize!(slp::SlpLS, Δ, qp) = sub_optimize!(
+	slp.optimizer,
+	LpData(slp, qp),
+	slp.mu_lp,
+	slp.x,
+	Δ,
+	slp.options.tol_error
+)
+
+create_model!(slp::SlpLS, Δ) = create_model!(
 	slp.optimizer,
 	LpData(slp),
 	slp.mu_lp,
