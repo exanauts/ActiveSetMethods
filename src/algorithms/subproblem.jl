@@ -12,6 +12,7 @@ struct QpData{T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
 	v_ub::Tv
 	j_row::Array{Int64,1}
     	j_col::Array{Int64,1}
+    	adj::Array{Int64,1}
 	constr_v_ub
 	constr_v_lb
 	constr
@@ -128,6 +129,18 @@ function sub_optimize!(
 	for i=1:length(qp.j_row)
 		coeff = (abs(qp.A[qp.j_row[i],qp.j_col[i]]) <= tol_error) ? 0.0 : qp.A[qp.j_row[i],qp.j_col[i]];
 		MOI.modify(model, qp.constr[qp.j_row[i]], MOI.ScalarCoefficientChange(MOI.VariableIndex(qp.j_col[i]), coeff))
+		
+		
+	end
+	
+	for ind in 1:length(qp.adj)
+		i_row = qp.adj[ind]
+		for i in 1:length(qp.A[i_row,:].nzind)
+			i_col = qp.A[i_row,:].nzind[i];
+			value = qp.A[i_row,:].nzval[i];
+			coeff = (abs(value) <= tol_error) ? 0.0 : value;
+			MOI.modify(model, qp.constr[m+ind], MOI.ScalarCoefficientChange(MOI.VariableIndex(i_col), coeff));
+		end		
 	end
 	
 	for i=1:m
@@ -149,6 +162,7 @@ function sub_optimize!(
 			#push!(constr, MOI.add_constraint(model, terms, MOI.EqualTo(c_lb)))
 			#println("----> single constraints Check1")
 		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
+			MOI.set(model, MOI.ConstraintSet(), qp.constr[i], MOI.GreaterThan(c_lb))
 			#push!(constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
                	#push!(constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
                	println("====> Double constraints Check2")
@@ -163,6 +177,13 @@ function sub_optimize!(
 		end
 		#MOI.add_constraint(model, MOI.SingleVariable(u[i]), MOI.GreaterThan(0.0))
 		#MOI.add_constraint(model, MOI.SingleVariable(v[i]), MOI.GreaterThan(0.0))
+	end
+	
+	for i in 1:length(qp.adj) 
+		#terms = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0;-1.0], [u[qp.adj[i]];v[qp.adj[i]]]), 0.0);
+		c_ub = qp.c_ub[qp.adj[i]]-qp.b[qp.adj[i]];	
+		c_ub = (abs(c_ub) <= tol_error) ? 0.0 : c_ub;
+		MOI.set(model, MOI.ConstraintSet(), qp.constr[i+m], MOI.LessThan(c_ub))
 	end
 			
 	
@@ -202,7 +223,12 @@ function sub_optimize!(
 
 		# extract the multipliers to constraints
 		#ci = 1
-		lambda .= MOI.get(model, MOI.ConstraintDual(1), qp.constr)
+		lambda_indv = MOI.get(model, MOI.ConstraintDual(1), qp.constr)
+		lambda .= lambda_indv[1:m];
+		for ind in 1:length(qp.adj)
+			i_row = qp.adj[ind]
+			lambda[i_row] += lambda_indv[m+ind];
+		end
 
 		# extract the multipliers to column bounds
 		mult_x_U .= MOI.get(model, MOI.ConstraintDual(1), qp.constr_v_ub)
@@ -432,7 +458,8 @@ function create_model!(
 			#println("----> single constraints Check1")
 		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
 			push!(qp.constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
-               	push!(qp.constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
+			push!(qp.adj,i);
+               	#push!(qp.constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
                	println("=====> double constraints Check")
 		elseif qp.c_lb[i] != -Inf
 			push!(qp.constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
@@ -443,6 +470,13 @@ function create_model!(
 		end
 		MOI.add_constraint(model, MOI.SingleVariable(u[i]), MOI.GreaterThan(0.0))
 		MOI.add_constraint(model, MOI.SingleVariable(v[i]), MOI.GreaterThan(0.0))
+	end
+	
+	for i in qp.adj
+		terms = MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.([1.0;-1.0], [u[i];v[i]]), 0.0);
+		c_ub = qp.c_ub[i]-qp.b[i];	
+		c_ub = (abs(c_ub) <= tol_error) ? 0.0 : c_ub;
+		push!(qp.constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
 	end
    @show qp.c_lb
    @show qp.c_ub

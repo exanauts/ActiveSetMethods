@@ -282,7 +282,7 @@ function active_set_optimize!(slp::SlpLS)
     slp.problem.mult_x_L .= slp.mult_x_L
 end
 
-function LpData(slp::SlpLS)
+#=function LpData(slp::SlpLS)
 	A = compute_jacobian_matrix(slp)
 	return QpData(
         MOI.MIN_SENSE,
@@ -301,9 +301,20 @@ function LpData(slp::SlpLS)
 		MOI.ConstraintIndex[],
 		MOI.ConstraintIndex[])
 		#nothing,nothing,nothing)
-end
+end=#
 
-function LpData(slp::SlpLS, qp)
+function LpData(slp::SlpLS, qp=nothing)
+	if qp == nothing
+		constr_v_ub = MOI.ConstraintIndex[];
+		constr_v_lb = MOI.ConstraintIndex[];
+		constr = MOI.ConstraintIndex[];
+		adj = zeros(Int,0);
+	else
+		constr_v_ub = qp.constr_v_ub;
+		constr_v_lb = qp.constr_v_lb;
+		constr = qp.constr
+		adj = qp.adj
+	end
 	A = compute_jacobian_matrix(slp)
 	return QpData(
         MOI.MIN_SENSE,
@@ -318,9 +329,10 @@ function LpData(slp::SlpLS, qp)
 		slp.problem.x_U,
 		slp.j_row,
 		slp.j_col,
-		qp.constr_v_ub,
-		qp.constr_v_lb,
-		qp.constr)
+		adj,
+		constr_v_ub,
+		constr_v_lb,
+		constr)
 		#nothing,nothing,nothing)
 end
 
