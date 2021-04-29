@@ -17,8 +17,8 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     phi::T
     directional_derivative::T
     
-    j_row::Tv
-    j_col::Tv
+    j_row::Array{Int64,1}
+    j_col::Array{Int64,1}
 
     norm_E::T # norm of constraint violations
     mu_merit::T
@@ -47,11 +47,11 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         # slp.hLag = Tv(undef, length(problem.h_str))
         slp.phi = Inf
         
-        slp.j_row = zeros(length(slp.problem.j_str));
-        slp.j_col = zeros(length(slp.problem.j_str));
+        slp.j_row = zeros(Int,length(slp.problem.j_str));
+        slp.j_col = zeros(Int,length(slp.problem.j_str));
         for i=1:length(slp.problem.j_str)
-             slp.j_row[i] = slp.problem.j_str[i][1];
-             slp.j_col[i] = slp.problem.j_str[i][2];
+             slp.j_row[i] = Int(slp.problem.j_str[i][1]);
+             slp.j_col[i] = Int(slp.problem.j_str[i][2]);
     	end
 
         slp.norm_E = 0.0
@@ -283,13 +283,13 @@ function active_set_optimize!(slp::SlpLS)
 end
 
 function LpData(slp::SlpLS)
-	#A = compute_jacobian_matrix(slp)
+	A = compute_jacobian_matrix(slp)
 	return QpData(
         MOI.MIN_SENSE,
         nothing,
 		slp.df,
 		slp.f,
-		slp.dE,
+		A,
 		slp.E,
 		slp.problem.g_L,
 		slp.problem.g_U,
@@ -304,13 +304,13 @@ function LpData(slp::SlpLS)
 end
 
 function LpData(slp::SlpLS, qp)
-	#A = compute_jacobian_matrix(slp)
+	A = compute_jacobian_matrix(slp)
 	return QpData(
         MOI.MIN_SENSE,
         nothing,
 		slp.df,
 		slp.f,
-		slp.dE,
+		A,
 		slp.E,
 		slp.problem.g_L,
 		slp.problem.g_U,

@@ -25,7 +25,7 @@ function compute_jacobian_matrix(
 end
 
 function compute_jacobian_matrix(
-    m::Int, n::Int, j_row::Tv, j_col::Tv, dE::Tv
+    m::Int, n::Int, j_row::Array{Int64,1}, j_col::Array{Int64,1}, dE::Tv
 ) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
 	start_time = time();
 	#=J = spzeros(m, n)

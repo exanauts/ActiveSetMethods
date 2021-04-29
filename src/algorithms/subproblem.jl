@@ -1,17 +1,17 @@
-struct QpData{T, Tv<:AbstractArray{T}} #, Tm<:AbstractMatrix{T}}
+struct QpData{T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
 	sense::MOI.OptimizationSense
 	#Q::Union{Nothing,Tm}
-	Q::Nothing
+	Q::Union{Nothing,Tm}
 	c::Tv
 	c0::T # objective functiton constant term
-	dE::Tv
+	A::Tm
 	b::Tv
 	c_lb::Tv
 	c_ub::Tv
 	v_lb::Tv
 	v_ub::Tv
-	j_row::Tv
-    	j_col::Tv
+	j_row::Array{Int64,1}
+    	j_col::Array{Int64,1}
 	constr_v_ub
 	constr_v_lb
 	constr
@@ -32,12 +32,12 @@ Solve subproblem
 
 function sub_optimize!(
 	model::MOI.AbstractOptimizer,
-	qp::QpData{T,Tv},
+	qp::QpData{T,Tv,Tm},
 	mu::T,
 	x_k::Tv,
 	Δ::T,
-	tol_error::Float64
-) where {T, Tv}
+	tol_error::T
+) where {T, Tv, Tm}
 
 	start_time = time();
 	# drop small values to avoid numerical issues
@@ -58,6 +58,8 @@ function sub_optimize!(
 	
 	n = length(qp.c);
 	m = length(qp.c_lb);
+	
+	#A_old = sparse(qp.j_row,qp.j_col,qp.dE,m,n)
 	
 	@assert n > 0
 	@assert m >= 0
@@ -120,9 +122,12 @@ function sub_optimize!(
 	# constr is used to retrieve the dual variable of the constraints after solution
 	#constr = MOI.ConstraintIndex[]
 	
-	for i=1:length(qp.dE)
-		qp.dE[i] = (abs(qp.dE[i]) <= tol_error) ? 0.0 : qp.dE[i];
-		MOI.modify(model, qp.constr[Int(qp.j_row[i])], MOI.ScalarCoefficientChange(MOI.VariableIndex(Int(qp.j_col[i])), qp.dE[i]))
+	#@show qp.dE
+	@show qp.j_row
+	@show qp.j_col
+	for i=1:length(qp.j_row)
+		coeff = (abs(qp.A[qp.j_row[i],qp.j_col[i]]) <= tol_error) ? 0.0 : qp.A[qp.j_row[i],qp.j_col[i]];
+		MOI.modify(model, qp.constr[qp.j_row[i]], MOI.ScalarCoefficientChange(MOI.VariableIndex(qp.j_col[i]), coeff))
 	end
 	
 	for i=1:m
@@ -146,7 +151,7 @@ function sub_optimize!(
 		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
 			#push!(constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
                	#push!(constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
-               	#println("----> single constraints Check2")
+               	println("====> Double constraints Check2")
 		elseif qp.c_lb[i] != -Inf
 			MOI.set(model, MOI.ConstraintSet(), qp.constr[i], MOI.GreaterThan(c_lb))
 			#push!(constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
@@ -196,16 +201,8 @@ function sub_optimize!(
 		end
 
 		# extract the multipliers to constraints
-		ci = 1
-		for i=1:m
-			lambda[i] = MOI.get(model, MOI.ConstraintDual(1), qp.constr[ci])
-			ci += 1
-			# This is for a ranged constraint.
-			if qp.c_lb[i] > -Inf && qp.c_ub[i] < Inf && qp.c_lb[i] < qp.c_ub[i]
-				lambda[i] += MOI.get(model, MOI.ConstraintDual(1), qp.constr[ci])
-				ci += 1
-			end
-		end
+		#ci = 1
+		lambda .= MOI.get(model, MOI.ConstraintDual(1), qp.constr)
 
 		# extract the multipliers to column bounds
 		mult_x_U .= MOI.get(model, MOI.ConstraintDual(1), qp.constr_v_ub)
@@ -225,45 +222,6 @@ function sub_optimize!(
 		@error "Unexpected status: $(TerminationStatus)"
 	end
 	
-	#=
-	if TerminationStatus == MOI.OPTIMAL
-		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
-		if m > 0
-			Usol = MOI.get(model, MOI.VariablePrimal(), u);
-			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
-			infeasibility += max(0.0, sum(Usol) + sum(Vsol))
-		end
-
-		# extract the multipliers to constraints
-		ci = 1
-		for i=1:m
-			lambda[i] = MOI.get(model, MOI.ConstraintDual(1), constr[ci])
-			ci += 1
-			# This is for a ranged constraint.
-			if qp.c_lb[i] > -Inf && qp.c_ub[i] < Inf && qp.c_lb[i] < qp.c_ub[i]
-				lambda[i] += MOI.get(model, MOI.ConstraintDual(1), constr[ci])
-				ci += 1
-			end
-		end
-
-		# extract the multipliers to column bounds
-		mult_x_U .= MOI.get(model, MOI.ConstraintDual(1), constr_v_ub)
-		mult_x_L .= MOI.get(model, MOI.ConstraintDual(1), constr_v_lb)
-		# careful because of the trust region
-		for j=1:n
-			if Xsol[j] < qp.v_ub[j] - x_k[j]
-				mult_x_U[j] = 0.0
-			end
-			if Xsol[j] > qp.v_lb[j] - x_k[j]
-				mult_x_L[j] = 0.0
-			end
-		end
-	elseif TerminationStatus == MOI.DUAL_INFEASIBLE
-		@error "Trust region must be employed."
-	else
-		@error "Unexpected TerminationStatus: $(TerminationStatus)"
-	end=#
-	
 	
 	simplex = try 
 			MOI.get(model, MOI.SimplexIterations()); 
@@ -277,19 +235,117 @@ function sub_optimize!(
 		    	0.0; 
 		    end
 		    
-
+	#=@show lambda
+	@show mult_x_L
+	@show mult_x_U
+	@show qp.v_lb
+	@show qp.v_ub
+	@show x_k
+	@show qp.c_lb
+	@show qp.c_ub
+	@show qp.b
+	@show qp.A
+	
+	obj = MOI.get(model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{Float64}}())
+	c = zeros(length(obj.terms));
+	for term in obj.terms
+	    c[term.variable_index.value] = term.coefficient
+	end
+	@show c
+	#get(model, MathOptInterface.ConstraintIndex{MathOptInterface.SingleVariable,MathOptInterface.GreaterThan{Float64}}, qp.constr_v_lb[1]
+	#@show qp.constr_v_lb
+	
+	cons = MOI.get(model, MOI.ListOfConstraints())
+	@show cons
+	
+	mn = 0;
+	
+	for i in 1:length(cons)
+		F = cons[i][1]
+		S = cons[i][2]
+		ci = MOI.get(model, MOI.ListOfConstraintIndices{F,S}())
+		mn += length(ci)
+	end
+	
+	@show mn
+	
+	A = zeros(mn,length(c));
+	b = zeros(mn)
+	k = 0;
+	for i in 1:length(cons)
+		#k += 1;
+		F = cons[i][1]
+		S = cons[i][2]
+		@show F
+		@show S
+		ci = MOI.get(model, MOI.ListOfConstraintIndices{F,S}())
+		@show ci
+		if F == MOI.SingleVariable
+			f = MOI.get(model, MOI.ConstraintFunction(), ci)
+			s = MOI.get(model, MOI.ConstraintSet(), ci)
+			@show f
+			@show s
+			for ii in 1:length(f)
+				println("-> check1")
+				k += 1;
+				#f = MOI.get(model, MOI.ConstraintFunction(), ci[i])
+				A[k,f[ii].variable.value] = 1;
+				if S == MOI.LessThan{Float64}
+					b[k] = s[ii].upper;
+					println("---> check1")
+				elseif S == MOI.GreaterThan{Float64}
+					b[k] = s[ii].lower;
+					println("---> check2")
+				end
+			end
+		else
+			f = MOI.get(model, MOI.ConstraintFunction(), ci)
+			s = MOI.get(model, MOI.ConstraintSet(), ci)
+			@show f
+			@show s
+			for ii in 1:length(f)
+				println("-> check2")
+				k += 1;
+				#f = MOI.get(model, MOI.ConstraintFunction(), ci[i])
+				for term in f[ii].terms
+				    A[k,term.variable_index.value] = term.coefficient
+				end
+				if S == MOI.LessThan{Float64}
+					b[k] = s[ii].upper;
+					println("---> check3")
+				elseif S == MOI.GreaterThan{Float64}
+					b[k] = s[ii].lower;
+					println("---> check4")
+				end 
+			end
+		end
+		#=f = MOI.get(model, MOI.ConstraintFunction(), ci)
+		@show f
+		f1 = MOI.get(model, MOI.ConstraintFunction(), ci[i])
+		@show f1
+		#moi_backend = MOI.Utilities.CachingOptimizer(model)
+		#moi_backend = MOI.get(model, MOI.Utilities.CachingOptimizer());
+		#f = MOI.get(model, MOI.ConstraintFunction(), ci)
+		@show f1.upper
+		for term in f1.terms
+			@show term
+		#    A[i,term.variable_index.value] = term.coefficient
+		end=#
+	end
+	@show A
+	@show b=#
 	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, PrimalStatus, simplex, barrier
 end
 
 
 function create_model!(
 	model::MOI.AbstractOptimizer,
-	qp::QpData{T,Tv},
+	qp::QpData{T,Tv,Tm},
 	mu::T,
 	x_k::Tv,
 	Δ::T,
-	tol_error::Float64
-) where {T, Tv}
+	tol_error::T
+) where {T, Tv,Tm}
 
 	start_time = time();
 	# drop small values to avoid numerical issues
@@ -328,8 +384,6 @@ function create_model!(
 	# objective function
 	obj_terms = Array{MOI.ScalarAffineTerm{T},1}();
 	for i in 1:n
-		#c = qp.c[i];
-		#c = (abs(qp.c[i]) <= tol_error) ? 0.0 : qp.c[i];
 		push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
 	end
   println("-----> LP OPT2 time: $(time()-start_time)"); start_time = time();
@@ -379,7 +433,7 @@ function create_model!(
 		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
 			push!(qp.constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
                	push!(qp.constr, MOI.add_constraint(model, terms, MOI.LessThan(c_ub)))
-               	#println("=====> double constraints Check")
+               	println("=====> double constraints Check")
 		elseif qp.c_lb[i] != -Inf
 			push!(qp.constr, MOI.add_constraint(model, terms, MOI.GreaterThan(c_lb)))
 			#println("----> single constraints Check3")
@@ -390,7 +444,8 @@ function create_model!(
 		MOI.add_constraint(model, MOI.SingleVariable(u[i]), MOI.GreaterThan(0.0))
 		MOI.add_constraint(model, MOI.SingleVariable(v[i]), MOI.GreaterThan(0.0))
 	end
-	
+   @show qp.c_lb
+   @show qp.c_ub
    println("-----> LP OPT4 time: $(time()-start_time)"); start_time = time();
    return qp
 end
