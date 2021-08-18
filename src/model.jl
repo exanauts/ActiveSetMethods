@@ -28,6 +28,7 @@ mutable struct Model{T,Tv,Tt}
     sense::Symbol
 
     parameters::Parameters
+    statistics::Dict{String,Any}   # collects parameters of all iterations inside the algorithm if StatisticsFlag > 0
 
     Model(
         n::Int, 
@@ -54,7 +55,8 @@ mutable struct Model{T,Tv,Tt}
         -5,
         eval_f, eval_g, eval_grad_f, eval_jac_g, eval_h, 
         nothing, :Min,
-        parameters
+        parameters,
+        Dict{String,Any}()
     )
 end
 

@@ -25,6 +25,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     optimizer::MOI.AbstractOptimizer
 
     options::Parameters
+    statistics::Dict{String,Any}
 
     iter::Int
     ret::Int
@@ -49,7 +50,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.alpha = 1.0
 
         slp.options = problem.parameters
-        slp.optimizer = slp.options.external_optimizer()
+        slp.optimizer = MOI.instantiate(slp.options.external_optimizer)
 
         slp.iter = 1
         slp.ret = -5
@@ -58,7 +59,6 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
 end
 
 function active_set_optimize!(slp::SlpLS)
-
     Δ = slp.options.tr_size
 
     # Set initial point from MOI
@@ -75,17 +75,36 @@ function active_set_optimize!(slp::SlpLS)
     end
 
     slp.iter = 1
+    if slp.options.StatisticsFlag != 0
+    	slp.problem.statistics["f(x)"] = Array{Float64,1}()
+    	slp.problem.statistics["ϕ(x_k))"] = Array{Float64,1}()
+    	slp.problem.statistics["D(ϕ,p)"] = Array{Float64,1}()
+    	slp.problem.statistics["|p|"] = Array{Float64,1}()
+    	slp.problem.statistics["|J|2"] = Array{Float64,1}() 
+    	slp.problem.statistics["|J|inf"] = Array{Float64,1}() 
+    	slp.problem.statistics["iter_time"] = Array{Float64,1}() 
+    	slp.problem.statistics["alpha"] = Array{Float64,1}()
+    	slp.problem.statistics["μ_merit"] = Array{Float64,1}()
+    	slp.problem.statistics["μ_lp"] = Array{Float64,1}()
+    	slp.problem.statistics["m(p)"] = Array{Float64,1}()
+    	slp.problem.statistics["inf_pr"] = Array{Float64,1}()
+    	slp.problem.statistics["inf_du"] = Array{Float64,1}()
+    	slp.problem.statistics["compl"] = Array{Float64,1}()
+    	slp.problem.statistics["Sparsity"] = Array{Float64,1}()
+    	slp.problem.statistics["LP_time"] = Array{Float64,1}()
+    	slp.problem.statistics["iter_time"] = Array{Float64,1}()    	
+    end
 
     while true
-
-        if (slp.iter - 1) % 100 == 0
+	iter_time_start = time();
+        if (slp.iter - 1) % 100 == 0 && slp.options.OutputFlag != 0
             @printf("%6s", "iter")
             @printf("  %15s", "f(x_k)")
             @printf("  %15s", "ϕ(x_k)")
             @printf("  %15s", "D(ϕ,p)")
             @printf("  %15s", "∇f^Tp")
             @printf("  %14s", "|p|")
-            @printf("  %14s", "|dE|")
+            # @printf("  %14s", "|∇f|")
             @printf("  %14s", "μ_merit")
             @printf("  %14s", "μ_lp")
             @printf("  %14s", "m(p)")
@@ -99,9 +118,13 @@ function active_set_optimize!(slp::SlpLS)
         eval_functions!(slp)
         slp.norm_E = norm_violations(slp)
     
+        LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
         slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
         # @show slp.lambda
+        if slp.options.StatisticsFlag != 0
+	    	push!(slp.problem.statistics["LP_time"],time()-LP_time_start)
+    	end
 
         # update multipliers
         slp.lambda .= lambda
@@ -112,27 +135,45 @@ function active_set_optimize!(slp::SlpLS)
         slp.phi = compute_phi(slp)
         slp.directional_derivative = compute_derivative(slp)
 
-        # prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
+        #prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
         prim_infeas = norm_violations(slp, Inf)
         dual_infeas = KT_residuals(slp)
         compl = norm_complementarity(slp)
         sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
         
-        @printf("%6d", slp.iter)
-        @printf("  %+.8e", slp.f)
-        @printf("  %+.8e", slp.phi)
-        @printf("  %+.8e", slp.directional_derivative)
-        @printf("  %+.8e", slp.df' * slp.p)
-        @printf("  %.8e", norm(slp.p))
-        @printf("  %.8e", norm(slp.dE, Inf))
-        @printf("  %.8e", slp.mu_merit)
-        @printf("  %.8e", slp.mu_lp)
-        @printf("  %.8e", infeasibility)
-        @printf("  %.8e", prim_infeas)
-        @printf("  %.8e", dual_infeas)
-        @printf("  %.8e", compl)
-        @printf("  %.8e", sparsity_val)
-        @printf("\n")
+        if slp.options.OutputFlag != 0
+		@printf("%6d", slp.iter)
+		@printf("  %+.8e", slp.f)
+		@printf("  %+.8e", slp.phi)
+		@printf("  %+.8e", slp.directional_derivative)
+		@printf("  %+.8e", slp.df' * slp.p)
+		@printf("  %.8e", norm(slp.p))
+		# @printf("  %.8e", norm(slp.df))
+		@printf("  %.8e", slp.mu_merit)
+		@printf("  %.8e", slp.mu_lp)
+		@printf("  %.8e", infeasibility)
+		@printf("  %.8e", prim_infeas)
+		@printf("  %.8e", dual_infeas)
+		@printf("  %.8e", compl)
+		@printf("  %.8e", sparsity_val)
+		@printf("\n")
+        end
+        
+        if slp.options.StatisticsFlag != 0
+	    	push!(slp.problem.statistics["f(x)"],slp.f)
+	    	push!(slp.problem.statistics["ϕ(x_k))"],slp.phi)
+	    	push!(slp.problem.statistics["D(ϕ,p)"],slp.directional_derivative)
+	    	push!(slp.problem.statistics["|p|"],norm(slp.p))
+	    	push!(slp.problem.statistics["|J|2"],norm(slp.dE, 2))
+	    	push!(slp.problem.statistics["|J|inf"],norm(slp.dE, Inf))
+	    	push!(slp.problem.statistics["μ_merit"],slp.mu_merit)
+	    	push!(slp.problem.statistics["μ_lp"],slp.mu_lp)
+	    	push!(slp.problem.statistics["m(p)"],infeasibility)
+	    	push!(slp.problem.statistics["inf_pr"],prim_infeas)
+	    	push!(slp.problem.statistics["inf_du"],dual_infeas)
+	    	push!(slp.problem.statistics["compl"],compl)
+	    	push!(slp.problem.statistics["Sparsity"],sparsity_val)
+    	end
 
         # If the LP subproblem is infeasible, increase mu_lp and resolve.
         if infeasibility > 1.e-10 && slp.mu_lp < slp.options.max_mu
@@ -148,6 +189,15 @@ function active_set_optimize!(slp::SlpLS)
             slp.ret = 0
             break
         end
+        
+        # Iteration counter limit
+        if slp.iter >= slp.options.max_iter
+            slp.ret = -1
+            if norm_violations(slp, slp.x) <= slp.options.tol_infeas
+                slp.ret = 6
+            end
+            break
+        end
 
         # step size computation
         is_valid_step = compute_alpha(slp)
@@ -157,8 +207,14 @@ function active_set_optimize!(slp::SlpLS)
         end
         if !is_valid_step && slp.iter < slp.options.max_iter
             slp.iter += 1
+            if slp.options.StatisticsFlag != 0
+	    	push!(slp.problem.statistics["alpha"],0.0)
+    	    end
             continue
         end
+        if slp.options.StatisticsFlag != 0
+	    	push!(slp.problem.statistics["alpha"],slp.alpha)
+    	end
         # @show slp.alpha
 
         # update primal points
@@ -170,18 +226,16 @@ function active_set_optimize!(slp::SlpLS)
         # @show slp.lambda
         # @show slp.mult_x_U
         # @show slp.mult_x_L
-
-        # Iteration counter limit
-        if slp.iter >= slp.options.max_iter
-            slp.ret = -1
-            if norm_violations(slp, slp.x) <= slp.options.tol_infeas
-                slp.ret = 6
-            end
-            break
-        end
+        
+        if slp.options.StatisticsFlag != 0
+	    push!(slp.problem.statistics["iter_time"],time()-iter_time_start);
+    	end
+        
         slp.iter += 1
     end
-
+    if slp.options.StatisticsFlag != 0
+	slp.problem.statistics["iter"] = slp.iter
+    end
     slp.problem.obj_val = slp.problem.eval_f(slp.x)
     slp.problem.status = Int(slp.ret)
     slp.problem.x .= slp.x
