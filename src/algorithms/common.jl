@@ -10,33 +10,9 @@ Compute Jacobian matrix
 - `dE`: nonzero element values
 """
 function compute_jacobian_matrix(
-    m::Int, n::Int, j_str::Tt, dE::Tv
-) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
-	start_time = time();
-	J = spzeros(m, n)
-	for i = 1:length(j_str)
-		J[j_str[i][1], j_str[i][2]] += dE[i]
-    	end 
-    println("-----> Jacobian time: $(time()-start_time)")
-    #droptol!(J, tol_error);
-    println("-----> Jacobian: ", J);
-    println("-----> j_str: ", j_str);
-    return J
-end
-
-function compute_jacobian_matrix(
     m::Int, n::Int, j_row::Array{Int64,1}, j_col::Array{Int64,1}, dE::Tv
 ) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
-	start_time = time();
-	#=J = spzeros(m, n)
-	for i = 1:length(j_str)
-		J[j_str[i][1], j_str[i][2]] += dE[i]
-    	end =#
     J = sparse(j_row, j_col, dE,m,n);
-    #J = length(J) > 0 ? J : spzeros(m, n)
-    println("-----> Jacobian time: $(time()-start_time)")
-    #println("-----> Jacobian: ", J);
-    #droptol!(J, tol_error);
     return J
 end
 
@@ -56,20 +32,10 @@ Compute Kuhn-Turck residuals
 function KT_residuals(
     df::Tv, lambda::Tv, mult_x_U::Tv, mult_x_L::Tv, Jac::Tm
 ) where {T, Tv<:AbstractArray{T}, Tm<:AbstractMatrix{T}}
-start_time = time();
-    #KT_res = length(Jac) > 0 ? norm(df - Jac' * lambda - mult_x_U - mult_x_L) : norm(df - mult_x_U - mult_x_L);
     KT_res = norm(df - Jac' * lambda - mult_x_U - mult_x_L);
-println("-----> KT_residuals1 time: $(time()-start_time)"); start_time = time();
     scalar = max(1.0, norm(df))
-println("-----> KT_residuals2 time: $(time()-start_time)"); start_time = time();
-(m,n) = size(Jac);
-
-scalar = maximum([scalar;abs.(lambda) .* ((Jac .* Jac) * ones(n,1))]);
-#=
-    for i = 1:size(Jac,1)
-        scalar = max(scalar, abs(lambda[i]) * norm(Jac[i,:]))
-    end=#
-println("-----> KT_residuals3 time: $(time()-start_time)"); start_time = time();
+    (m,n) = size(Jac);
+    scalar = maximum([scalar;abs.(lambda) .* ((Jac .* Jac) * ones(n,1))]);
     return KT_res / scalar
 end
 

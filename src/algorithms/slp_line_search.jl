@@ -41,6 +41,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.lambda = zeros(problem.m)
         slp.mult_x_L = zeros(problem.n)
         slp.mult_x_U = zeros(problem.n)
+        slp.f = 0.0
         slp.df = Tv(undef, problem.n)
         slp.E = Tv(undef, problem.m)
         slp.dE = Tv(undef, length(problem.j_str))
@@ -104,12 +105,13 @@ function active_set_optimize!(slp::SlpLS)
     	slp.problem.statistics["LP_time"] = Array{Float64,1}()
     	slp.problem.statistics["iter_time"] = Array{Float64,1}()    
     	slp.problem.statistics["LP_simplex_iter"] = Array{Float64,1}()
-    	slp.problem.statistics["LP_barrier_iter"] = Array{Float64,1}()	
+    	slp.problem.statistics["LP_barrier_iter"] = Array{Float64,1}()
+    	slp.problem.statistics["condition"] = Array{Float64,1}()	
     end
-    
+
     eval_functions!(slp)
     qp = create_model!(slp, Δ)
-
+    
     while true
 	iter_time_start = time();
         if (slp.iter - 1) % 100 == 0 && slp.options.OutputFlag != 0
@@ -129,43 +131,31 @@ function active_set_optimize!(slp::SlpLS)
             @printf("  %14s", "Sparsity")
             @printf("\n")
         end
-   println("-----> check start")
-   start_time = time();
         eval_functions!(slp)
-   println("-----> check1 time: $(time()-start_time)"); start_time = time();
+        if slp.iter != 1
+        	eval_functions!(slp)
+        end
         slp.norm_E = norm_violations(slp)
-   println("-----> check2 time: $(time()-start_time)"); start_time = time(); 
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ, qp)
-        #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter = sub_optimize!(slp, Δ)
-        #println("n = ", length(slp.x));
-        #slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status = sub_optimize!(slp, Δ)
+        slp.p, lambda, mult_x_U, mult_x_L, infeasibility, status, LP_simplex_iter, LP_barrier_iter, condition = sub_optimize!(slp, Δ, qp)
         # @show slp.lambda
         if slp.options.StatisticsFlag != 0
 	    	push!(slp.problem.statistics["LP_time"],time()-LP_time_start)
     	end
-   println("-----> check2_1 time: $(time()-start_time)"); start_time = time(); 
+    	
         # update multipliers
         slp.lambda .= lambda
         slp.mult_x_U .= mult_x_U
         slp.mult_x_L .= mult_x_L
-   println("-----> check3 time: $(time()-start_time)"); start_time = time(); 
-        compute_mu_merit!(slp)
-   println("-----> check4 time: $(time()-start_time)"); start_time = time();
-        slp.phi = compute_phi(slp)
-   println("-----> check5 time: $(time()-start_time)"); start_time = time();
-        slp.directional_derivative = compute_derivative(slp)
-   println("-----> check6 time: $(time()-start_time)"); start_time = time();
 
-        #prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
-        prim_infeas = norm_violations(slp, Inf)
+        compute_mu_merit!(slp)
+        slp.phi = compute_phi(slp)
+        slp.directional_derivative = compute_derivative(slp)
+        prim_infeas = norm_violations(slp, 1)
         
-   println("-----> check7 time: $(time()-start_time)"); start_time = time();
         dual_infeas = KT_residuals(slp)
-   println("-----> check8 time: $(time()-start_time)"); start_time = time();
         compl = norm_complementarity(slp)
-   println("-----> check9 time: $(time()-start_time)"); start_time = time();
         sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
         
         if slp.options.OutputFlag != 0
@@ -202,6 +192,7 @@ function active_set_optimize!(slp::SlpLS)
 	    	push!(slp.problem.statistics["Sparsity"],sparsity_val)
 	    	push!(slp.problem.statistics["LP_simplex_iter"],LP_simplex_iter)
 	    	push!(slp.problem.statistics["LP_barrier_iter"],LP_barrier_iter)
+	    	push!(slp.problem.statistics["condition"],condition)
     	end
 
         # LP subproblem is infeasible or Numerical issues
@@ -218,9 +209,9 @@ function active_set_optimize!(slp::SlpLS)
         end
 
         # Check the first-order optimality condition
-        if prim_infeas <= slp.options.tol_infeas &&
-            dual_infeas <= slp.options.tol_residual &&
-            compl <= slp.options.tol_residual
+        if prim_infeas <= slp.options.tol_infeas #&&
+            #dual_infeas <= slp.options.tol_residual &&
+            #compl <= slp.options.tol_residual
             slp.ret = 0
             break
         end
@@ -237,7 +228,6 @@ function active_set_optimize!(slp::SlpLS)
 
         # step size computation
         is_valid_step = compute_alpha(slp)
-   println("-----> check10 time: $(time()-start_time)"); start_time = time();
         if slp.ret == -3
             @warn "Failed to find a step size"
             break
@@ -252,17 +242,10 @@ function active_set_optimize!(slp::SlpLS)
         if slp.options.StatisticsFlag != 0
 	    	push!(slp.problem.statistics["alpha"],slp.alpha)
     	end
-        @show slp.alpha
+        #@show slp.alpha
 
         # update primal points
         slp.x += slp.alpha .* slp.p
-
-        # slp.lambda += slp.alpha .* (lambda - slp.lambda)
-        # slp.mult_x_U += slp.alpha .* (mult_x_U - slp.mult_x_U)
-        # slp.mult_x_L += slp.alpha .* (mult_x_L - slp.mult_x_L)
-        # @show slp.lambda
-        # @show slp.mult_x_U
-        # @show slp.mult_x_L
         
         if slp.options.StatisticsFlag != 0
 	    push!(slp.problem.statistics["iter_time"],time()-iter_time_start);
@@ -273,6 +256,7 @@ function active_set_optimize!(slp::SlpLS)
     if slp.options.StatisticsFlag != 0
 	slp.problem.statistics["iter"] = slp.iter
     end
+    #@show slp.lambda
     slp.problem.obj_val = slp.problem.eval_f(slp.x)
     slp.problem.status = Int(slp.ret)
     slp.problem.x .= slp.x
@@ -281,27 +265,6 @@ function active_set_optimize!(slp::SlpLS)
     slp.problem.mult_x_U .= slp.mult_x_U
     slp.problem.mult_x_L .= slp.mult_x_L
 end
-
-#=function LpData(slp::SlpLS)
-	A = compute_jacobian_matrix(slp)
-	return QpData(
-        MOI.MIN_SENSE,
-        nothing,
-		slp.df,
-		slp.f,
-		A,
-		slp.E,
-		slp.problem.g_L,
-		slp.problem.g_U,
-		slp.problem.x_L,
-		slp.problem.x_U,
-		slp.j_row,
-		slp.j_col,
-		MOI.ConstraintIndex[],
-		MOI.ConstraintIndex[],
-		MOI.ConstraintIndex[])
-		#nothing,nothing,nothing)
-end=#
 
 function LpData(slp::SlpLS, qp=nothing)
 	if qp == nothing
@@ -333,17 +296,8 @@ function LpData(slp::SlpLS, qp=nothing)
 		constr_v_ub,
 		constr_v_lb,
 		constr)
-		#nothing,nothing,nothing)
 end
 
-sub_optimize!(slp::SlpLS, Δ) = sub_optimize!(
-	slp.optimizer,
-	LpData(slp),
-	slp.mu_lp,
-	slp.x,
-	Δ,
-	slp.options.tol_error
-)
 
 sub_optimize!(slp::SlpLS, Δ, qp) = sub_optimize!(
 	slp.optimizer,
@@ -351,7 +305,8 @@ sub_optimize!(slp::SlpLS, Δ, qp) = sub_optimize!(
 	slp.mu_lp,
 	slp.x,
 	Δ,
-	slp.options.tol_error
+	slp.options.tol_error,
+	slp.options.condition_flag
 )
 
 create_model!(slp::SlpLS, Δ) = create_model!(
@@ -360,7 +315,8 @@ create_model!(slp::SlpLS, Δ) = create_model!(
 	slp.mu_lp,
 	slp.x,
 	Δ,
-	slp.options.tol_error
+	slp.options.tol_error,
+	slp.options.condition_flag
 )
 
 """
