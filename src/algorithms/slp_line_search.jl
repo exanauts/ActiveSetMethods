@@ -315,8 +315,7 @@ create_model!(slp::SlpLS, Δ) = create_model!(
 	slp.mu_lp,
 	slp.x,
 	Δ,
-	slp.options.tol_error,
-	slp.options.condition_flag
+	slp.options.tol_error
 )
 
 """
