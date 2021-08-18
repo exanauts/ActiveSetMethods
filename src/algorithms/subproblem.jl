@@ -37,7 +37,7 @@ function sub_optimize!(
 	mu::T,
 	x_k::Tv,
 	Δ::T,
-	tol_error::T
+	tol_error::T,
 	condition_flag::Int
 ) where {T, Tv, Tm}
 	
