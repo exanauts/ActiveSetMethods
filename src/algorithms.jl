@@ -26,3 +26,4 @@ Abstract type of SLP solvers
 abstract type AbstractSlpOptimizer <: AbstractOptimizer end
 
 include("algorithms/slp_line_search.jl")
+include("algorithms/slp_trust_region.jl")
