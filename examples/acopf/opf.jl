@@ -1,3 +1,4 @@
+using Revise
 using ActiveSetMethods
 using PowerModels, JuMP, GLPK
 
@@ -8,11 +9,12 @@ build_acr(data_file::String) = instantiate_model(PowerModels.parse_file(data_fil
 build_iv(data_file::String) = instantiate_model(PowerModels.parse_file(data_file), IVRPowerModel, PowerModels.build_opf_iv)
 build_dcp(data_file::String) = instantiate_model(PowerModels.parse_file(data_file), DCPPowerModel, PowerModels.build_opf_iv)
 
-run_opf(data_file::String) = run_opf(build_acp(data_file))
+run_opf(data_file::String, max_iter::Int = 100) = run_opf(build_acp(data_file), max_iter)
 run_opf(pm::AbstractPowerModel, max_iter::Int = 100) = optimize_model!(pm, optimizer = optimizer_with_attributes(
     ActiveSetMethods.Optimizer, 
     "external_optimizer" => GLPK.Optimizer,
-    "max_iter" => max_iter
+    "max_iter" => max_iter,
+    "algorithm" => "Line Search",
 ))
 
 include("init_opf.jl")
