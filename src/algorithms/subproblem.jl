@@ -55,7 +55,8 @@ function sub_optimize!(
 	end
 
 	# Slacks v and u are added only for constrained problems.
-	if m > 0
+	add_slack = ifelse(m > 0 && mu < Inf, true, false)
+	if add_slack
 		u = MOI.add_variables(model, m)
 		v = MOI.add_variables(model, m)
 		append!(obj_terms, MOI.ScalarAffineTerm.(mu, u));
@@ -89,8 +90,10 @@ function sub_optimize!(
 	constr = MOI.ConstraintIndex[]
 	for i=1:m
 		terms = get_moi_constraint_row_terms(qp.A, i)
-		push!(terms, MOI.ScalarAffineTerm{T}(1.0, u[i]));
-		push!(terms, MOI.ScalarAffineTerm{T}(-1.0, v[i]));
+		if add_slack
+			push!(terms, MOI.ScalarAffineTerm{T}(1.0, u[i]));
+			push!(terms, MOI.ScalarAffineTerm{T}(-1.0, v[i]));
+		end
 		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
 			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
 				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.EqualTo(qp.c_lb[i])
@@ -111,12 +114,14 @@ function sub_optimize!(
 				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
 			))
 		end
-		u_term = MOI.ScalarAffineTerm{T}(1.0, u[i]);
-		MOI.Utilities.normalize_and_add_constraint(model, 
-			MOI.ScalarAffineFunction([u_term], 0.0), MOI.GreaterThan(0.0));
-		v_term = MOI.ScalarAffineTerm{T}(1.0, v[i]);
-		MOI.Utilities.normalize_and_add_constraint(model,
-			MOI.ScalarAffineFunction([v_term], 0.0), MOI.GreaterThan(0.0));
+		if add_slack
+			u_term = MOI.ScalarAffineTerm{T}(1.0, u[i]);
+			MOI.Utilities.normalize_and_add_constraint(model, 
+				MOI.ScalarAffineFunction([u_term], 0.0), MOI.GreaterThan(0.0));
+			v_term = MOI.ScalarAffineTerm{T}(1.0, v[i]);
+			MOI.Utilities.normalize_and_add_constraint(model,
+				MOI.ScalarAffineFunction([v_term], 0.0), MOI.GreaterThan(0.0));
+		end
 	end
 
 	MOI.optimize!(model)
@@ -131,7 +136,7 @@ function sub_optimize!(
 
 	if status == MOI.OPTIMAL
 		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
-		if m > 0
+		if add_slack
 			Usol = MOI.get(model, MOI.VariablePrimal(), u);
 			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
 			infeasibility += max(0.0, sum(Usol) + sum(Vsol))
@@ -163,6 +168,8 @@ function sub_optimize!(
 		end
 	elseif status == MOI.DUAL_INFEASIBLE
 		@error "Trust region must be employed."
+	elseif status == MOI.INFEASIBLE
+		infeasibility = Inf
 	else
 		@error "Unexpected status: $(status)"
 	end
