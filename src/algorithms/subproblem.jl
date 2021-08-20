@@ -135,6 +135,7 @@ function sub_optimize!(
 	infeasibility = 0.0
 
 	if status == MOI.OPTIMAL
+		# @show MOI.get(model, MOI.ObjectiveValue())
 		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
 		if add_slack
 			Usol = MOI.get(model, MOI.VariablePrimal(), u);
@@ -169,7 +170,11 @@ function sub_optimize!(
 	elseif status == MOI.DUAL_INFEASIBLE
 		@error "Trust region must be employed."
 	elseif status == MOI.INFEASIBLE
-		infeasibility = Inf
+		fill!(Xsol, 0.0)
+		fill!(lambda, 0.0)
+		fill!(mult_x_U, 0.0)
+		fill!(mult_x_L, 0.0)
+		infeasibility = 1.e+20
 	else
 		@error "Unexpected status: $(status)"
 	end
