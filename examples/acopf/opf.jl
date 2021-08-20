@@ -1,6 +1,6 @@
 using Revise
 using ActiveSetMethods
-using PowerModels, JuMP, GLPK
+using PowerModels, JuMP, GLPK, Ipopt
 
 include("acwr.jl")
 
@@ -15,7 +15,36 @@ run_opf(pm::AbstractPowerModel, max_iter::Int = 100) = optimize_model!(pm, optim
     "external_optimizer" => GLPK.Optimizer,
     "max_iter" => max_iter,
     "algorithm" => "Line Search",
+    # "algorithm" => "Trust Region",
 ))
+
+function run_opf_ls(data_file::String, max_iter::Int = 100)
+    pm = build_acp(data_file)
+    pm2 = build_acp(data_file)
+    JuMP.@objective(pm2.model, Min, 0)
+    # init_vars(pm)
+    init_vars_from_ipopt(pm, pm2)
+    optimize_model!(pm, optimizer = optimizer_with_attributes(
+        ActiveSetMethods.Optimizer, 
+        "external_optimizer" => GLPK.Optimizer,
+        "max_iter" => max_iter,
+        "algorithm" => "Line Search",
+    ))
+end
+
+function run_opf_tr(data_file::String, max_iter::Int = 100)
+    pm = build_acp(data_file)
+    pm2 = build_acp(data_file)
+    JuMP.@objective(pm2.model, Min, 0)
+    # init_vars(pm)
+    init_vars_from_ipopt(pm, pm2)
+    optimize_model!(pm, optimizer = optimizer_with_attributes(
+        ActiveSetMethods.Optimizer, 
+        "external_optimizer" => GLPK.Optimizer,
+        "max_iter" => max_iter,
+        "algorithm" => "Trust Region",
+    ))
+end
 
 include("init_opf.jl")
 
