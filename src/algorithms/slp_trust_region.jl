@@ -95,10 +95,11 @@ function active_set_optimize!(slp::SlpTR)
         if (slp.iter - 1) % 25 == 0 && slp.options.OutputFlag != 0
             @printf("%6s", "iter")
             @printf("  %15s", "f(x_k)")
-            @printf("  %15s", "ϕ_pre")
+            @printf("  %15s", "Δ")
             @printf("  %14s", "|p|")
-            @printf("  %14s", "m(p)")
             @printf("  %14s", "inf_pr")
+            @printf("  %14s", "inf_du")
+            @printf("  %14s", "compl")
             @printf("  %14s", "Sparsity")
             @printf("\n")
         end
@@ -123,26 +124,27 @@ function active_set_optimize!(slp::SlpTR)
 
         #prim_infeas = norm(slp.dE, Inf) > 0 ? norm_violations(slp, Inf) / norm(slp.dE, Inf) : norm_violations(slp, Inf)
         prim_infeas = norm_violations(slp, Inf)
+        dual_infeas = KT_residuals(slp)
+        compl = norm_complementarity(slp)
         sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
         
         if slp.options.OutputFlag != 0
             @printf("%6d", slp.iter)
             @printf("  %+.8e", slp.f)
-            @printf("  %+.8e", slp.phi)
+            @printf("  %+.8e", slp.Δ)
             @printf("  %.8e", norm(slp.p))
-            @printf("  %.8e", infeasibility)
             @printf("  %.8e", prim_infeas)
+            @printf("  %.8e", dual_infeas)
+            @printf("  %.8e", compl)
             @printf("  %.8e", sparsity_val)
             @printf("\n")
         end
         
         if slp.options.StatisticsFlag != 0
 	    	push!(slp.problem.statistics["f(x)"],slp.f)
-	    	push!(slp.problem.statistics["ϕ_pre"],slp.phi)
 	    	push!(slp.problem.statistics["|p|"],norm(slp.p, Inf))
 	    	push!(slp.problem.statistics["|J|2"],norm(slp.dE, 2))
 	    	push!(slp.problem.statistics["|J|inf"],norm(slp.dE, Inf))
-	    	push!(slp.problem.statistics["m(p)"],infeasibility)
 	    	push!(slp.problem.statistics["inf_pr"],prim_infeas)
 	    	push!(slp.problem.statistics["Sparsity"],sparsity_val)
     	end
@@ -158,6 +160,8 @@ function active_set_optimize!(slp::SlpTR)
         # Check the first-order optimality condition
         # TODO: should we check |p| < ϵ instead?
         if prim_infeas <= slp.options.tol_infeas &&
+            dual_infeas <= slp.options.tol_residual &&
+            compl <= slp.options.tol_residual &&
             norm(slp.p, Inf) <= slp.options.tol_residual
             slp.ret = 0
             break
@@ -174,17 +178,14 @@ function active_set_optimize!(slp::SlpTR)
 
         # step size computation
         rho = step_quality(slp)
-        if rho < 0
-            @show rho, slp.Δ
-            continue
+        if rho >= 0
+            # update primal points
+            slp.x += slp.p
+            
+            if slp.options.StatisticsFlag != 0
+                push!(slp.problem.statistics["iter_time"],time()-iter_time_start);
+            end
         end
-
-        # update primal points
-        slp.x += slp.p
-        
-        if slp.options.StatisticsFlag != 0
-	        push!(slp.problem.statistics["iter_time"],time()-iter_time_start);
-    	end
         
         slp.iter += 1
     end
@@ -224,6 +225,25 @@ sub_optimize!(slp::SlpTR, Δ) = sub_optimize!(
 )
 
 """
+    KT_residuals
+
+Compute Kuhn-Turck residuals
+"""
+KT_residuals(slp::SlpTR) = KT_residuals(slp.df, slp.lambda, slp.mult_x_U, slp.mult_x_L, compute_jacobian_matrix(slp))
+
+"""
+    norm_complementarity
+
+Compute the normalized complementeraity
+"""
+norm_complementarity(slp::SlpTR, p = Inf) = norm_complementarity(
+    slp.E, slp.problem.g_L, slp.problem.g_U, 
+    slp.x, slp.problem.x_L, slp.problem.x_U, 
+    slp.lambda, slp.mult_x_U, slp.mult_x_L, 
+    p
+)
+
+"""
     norm_violations
 
 Compute the normalized constraint violation
@@ -246,9 +266,6 @@ function eval_functions!(slp::SlpTR)
     slp.problem.eval_grad_f(slp.x, slp.df)
     slp.problem.eval_g(slp.x, slp.E)
     slp.problem.eval_jac_g(slp.x, :eval, [], [], slp.dE)
-    # obj_factor = 1.0
-    # slp.problem.eval_h(slp.x, :eval, [], [], obj_factor, slp.lambda, slp.hLag)
-    # @show slp.f, slp.df, slp.E, slp.dE
 end
 
 compute_jacobian_matrix(slp::SlpTR) = compute_jacobian_matrix(slp.problem.m, slp.problem.n, slp.problem.j_str, slp.dE)
@@ -259,9 +276,6 @@ function compute_nu!(slp::SlpTR)
         J = compute_jacobian_matrix(slp)
         for i = 1:slp.problem.m
             slp.ν[i] = norm_df / norm(J[i,:])
-            if slp.E[i] > slp.problem.g_U[i]
-            elseif slp.E[i] < slp.problem.g_L[i]
-            end
         end
         for j = 1:slp.problem.n
             slp.ν[slp.problem.m+j] = norm_df
@@ -292,7 +306,7 @@ end
 # merit function
 function compute_phi(slp::SlpTR, x::Tv) where {T, Tv<:AbstractArray{T}}
     E = slp.problem.eval_g(x, zeros(slp.problem.m))
-    ϕ = slp.f
+    ϕ = slp.problem.eval_f(x)
     for i = 1:slp.problem.m
         if E[i] > slp.problem.g_U[i]
             ϕ += slp.ν[i]*(E[i] - slp.problem.g_U[i])
