@@ -29,6 +29,7 @@ function sub_optimize!(
 	mu::T,
 	x_k::Tv,
 	Δ::T,
+	feasibility = false,
 ) where {T, Tv, Tm}
 
 	# empty optimizer just in case
@@ -50,8 +51,12 @@ function sub_optimize!(
 	
 	# objective function
 	obj_terms = Array{MOI.ScalarAffineTerm{T},1}();
-	for i in 1:n
-		push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
+	if feasibility
+		mu = 1.0
+	else
+		for i in 1:n
+			push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
+		end
 	end
 
 	# Slacks v and u are added only for constrained problems.
@@ -166,6 +171,9 @@ function sub_optimize!(
 			if Xsol[j] > qp.v_lb[j] - x_k[j]
 				mult_x_L[j] = 0.0
 			end
+		end
+		if feasibility
+			infeasibility = 0.0
 		end
 	elseif status == MOI.DUAL_INFEASIBLE
 		@error "Trust region must be employed."

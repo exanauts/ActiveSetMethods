@@ -78,3 +78,13 @@ function optimize!(model::Model)
     end
     return nothing
 end
+
+function add_statistics(model::Model, name::String, value::Float64)
+    if model.parameters.StatisticsFlag == 0
+        return
+    end
+    if !haskey(model.statistics, name)
+        model.statistics[name] = Array{Float64,1}()
+    end
+    push!(model.statistics[name], value)
+end
