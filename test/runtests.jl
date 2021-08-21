@@ -2,13 +2,6 @@ using ActiveSetMethods
 using GLPK
 using Test
 
-
-
-# @testset "Unit tests" begin
-#     include("unittests.jl")
-# end
-
-
 @testset "MathOptInterface" begin
     include("MOI_wrapper.jl")
 end
@@ -28,6 +21,9 @@ end
 end
 
 @testset "opf.jl" begin
-    include("../examples/acopf/opf.jl")
-    run_opf("../examples/acopf/case3.m")
+    include("opf.jl")
+    pm, result = run_opf_ls("../examples/acopf/case3.m")
+    @test isapprox(result["objective"], +5.90687949e+03, rtol=1e-3)
+    pm, result = run_opf_tr("../examples/acopf/case3.m")
+    @test isapprox(result["objective"], +5.90687949e+03, rtol=1e-2)
 end 
