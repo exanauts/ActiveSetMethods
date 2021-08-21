@@ -1,6 +1,15 @@
 name: Run tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - master
+    paths-ignore:
+    - 'README.md'
+    - 'Manifest.toml'
+  pull_request:
+    branches:
+    - master
 
 jobs:
   test-github-cpuonly:
