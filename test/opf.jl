@@ -9,26 +9,14 @@ build_acp(data_file::String) = instantiate_model(
     PowerModels.build_opf
 )
 
-function run_opf_ls(data_file::String, max_iter::Int = 100)
+function run_opf(data_file::String, max_iter::Int = 100, algorithm = "Line Search")
     pm = build_acp(data_file)
     result = optimize_model!(pm, optimizer = optimizer_with_attributes(
         ActiveSetMethods.Optimizer, 
         "OutputFlag" => 0,
         "external_optimizer" => GLPK.Optimizer,
         "max_iter" => max_iter,
-        "algorithm" => "Line Search",
+        "algorithm" => algorithm,
     ))
-    return pm, result
-end
-
-function run_opf_tr(data_file::String, max_iter::Int = 100)
-    pm = build_acp(data_file)
-    result = optimize_model!(pm, optimizer = optimizer_with_attributes(
-        ActiveSetMethods.Optimizer, 
-        "OutputFlag" => 0,
-        "external_optimizer" => GLPK.Optimizer,
-        "max_iter" => max_iter,
-        "algorithm" => "Trust Region",
-    ))
-    return pm, result
+    return result
 end
