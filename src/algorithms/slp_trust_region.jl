@@ -74,9 +74,11 @@ function active_set_optimize!(slp::SlpTR)
 
     slp.start_time = time()
 
-    sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
-    @printf("LP subproblem sparsity: %e\n", sparsity_val)
-    add_statistics(slp.problem, "sparsity", sparsity_val)
+    if slp.options.OutputFlag == 1
+        sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
+        @printf("LP subproblem sparsity: %e\n", sparsity_val)
+        add_statistics(slp.problem, "sparsity", sparsity_val)
+    end
 
     slp.Δ = slp.options.tr_size
 
