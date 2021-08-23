@@ -1165,7 +1165,7 @@ function MOI.get(model::Optimizer, ::MOI.TerminationStatus)
     elseif status == :Solve_Succeeded || status == :Feasible_Point_Found
         return MOI.LOCALLY_SOLVED
     elseif status == :Infeasible_Problem_Detected
-        return MOI.LOCALLY_INFEASIBLE
+        return MOI.INFEASIBLE
     elseif status == :Solved_To_Acceptable_Level
         return MOI.ALMOST_LOCALLY_SOLVED
     elseif status == :Search_Direction_Becomes_Too_Small
@@ -1242,8 +1242,7 @@ function MOI.get(model::Optimizer, attr::MOI.DualStatus)
         # tolerances.
         return MOI.NEARLY_FEASIBLE_POINT
     elseif status == :Infeasible_Problem_Detected
-        # TODO: What is the interpretation of the dual in this case?
-        return MOI.UNKNOWN_RESULT_STATUS
+        return MOI.INFEASIBILITY_CERTIFICATE
     else
         return MOI.UNKNOWN_RESULT_STATUS
     end
