@@ -45,41 +45,18 @@ function sub_optimize!(
 	@assert length(qp.v_lb) == n
 	@assert length(qp.v_ub) == n
 	@assert length(x_k) == n
+
+	# some parameters
+	c0 = qp.c0
+	sense = qp.sense
+	if feasibility
+		sense = MOI.MIN_SENSE
+		mu = 1.0
+		c0 = 0.0
+	end
 	
 	# variables
 	x = MOI.add_variables(model, n)
-	
-	# objective function
-	obj_terms = Array{MOI.ScalarAffineTerm{T},1}();
-	if feasibility
-		mu = 1.0
-	else
-		for i in 1:n
-			push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
-		end
-	end
-
-	# Slacks v and u are added only for constrained problems.
-	add_slack = ifelse(m > 0 && mu < Inf, true, false)
-	if add_slack
-		u = MOI.add_variables(model, m)
-		v = MOI.add_variables(model, m)
-		append!(obj_terms, MOI.ScalarAffineTerm.(mu, u));
-		append!(obj_terms, MOI.ScalarAffineTerm.(mu, v));
-	end
-
-	# set the objective function
-	if isnothing(qp.Q)
-		MOI.set(model,
-			MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
-			MOI.ScalarAffineFunction(obj_terms, qp.c0))
-	else
-		obj_qp_terms = get_scalar_quadratic_terms(qp.Q)
-		MOI.set(model,
-			MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{T}}(),
-			MOI.ScalarQuadraticFunction(obj_terms, obj_qp_terms, qp.c0))
-	end
-	MOI.set(model, MOI.ObjectiveSense(), MOI.MIN_SENSE)
 
 	# Add a dummy trust-region to all variables
 	constr_v_ub = MOI.ConstraintIndex[]
@@ -89,51 +66,151 @@ function sub_optimize!(
 		lb = max(-Δ, qp.v_lb[i] - x_k[i])
 		push!(constr_v_ub, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.LessThan(ub)))
 		push!(constr_v_lb, MOI.add_constraint(model, MOI.SingleVariable(x[i]), MOI.GreaterThan(lb)))
+		# @show i, lb, ub
 	end
 	
 	# constr is used to retrieve the dual variable of the constraints after solution
 	constr = MOI.ConstraintIndex[]
-	for i=1:m
-		terms = get_moi_constraint_row_terms(qp.A, i)
-		if add_slack
-			push!(terms, MOI.ScalarAffineTerm{T}(1.0, u[i]));
-			push!(terms, MOI.ScalarAffineTerm{T}(-1.0, v[i]));
+
+	# do we need slack variables?
+	add_slack = ifelse(m > 0 && mu < Inf, true, false)
+	slack_vars = Dict{Int,Vector{MOI.VariableIndex}}()
+
+	if add_slack
+		# create slack varables
+		for i=1:m
+			slack_vars[i] = []
+			push!(slack_vars[i], MOI.add_variable(model))
+			if qp.c_lb[i] > -Inf && qp.c_ub[i] < Inf
+				push!(slack_vars[i], MOI.add_variable(model))
+			end
 		end
-		if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
-			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.EqualTo(qp.c_lb[i])
-			))
-		elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
-			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
-			))
-			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
-			))
-		elseif qp.c_lb[i] != -Inf
-			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
-			))
-		elseif qp.c_ub[i] != Inf
-			push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
-			))
+
+		for i=1:m
+
+			# constant term in the constraint
+			b = qp.b[i]
+
+			# Adjust parameters for feasibility problem
+			if feasibility
+				viol = 0.0
+				if qp.b[i] > qp.c_ub[i]
+					viol = qp.c_ub[i] - qp.b[i]
+				elseif qp.b[i] < qp.c_lb[i]
+					viol = qp.c_lb[i] - qp.b[i]
+				end
+				b -= abs(viol)
+				if length(slack_vars[i]) == 2
+					if viol < 0
+						MOI.add_constraint(model, MOI.SingleVariable(slack_vars[i][1]), MOI.GreaterThan(0.0))
+						MOI.add_constraint(model, MOI.SingleVariable(slack_vars[i][2]), MOI.GreaterThan(viol))
+					else
+						MOI.add_constraint(model, MOI.SingleVariable(slack_vars[i][1]), MOI.GreaterThan(-viol))
+						MOI.add_constraint(model, MOI.SingleVariable(slack_vars[i][2]), MOI.GreaterThan(0.0))
+					end
+				elseif length(slack_vars[i]) == 1
+					MOI.add_constraint(model, MOI.SingleVariable(slack_vars[i][1]), MOI.GreaterThan(-abs(viol)))
+				else
+					@error "unexpected slack_vars"
+				end
+			else
+				# add bound constraints
+				for s in slack_vars[i]
+					MOI.add_constraint(model, MOI.SingleVariable(s), MOI.GreaterThan(0.0))
+				end
+			end
+			# @show viol, slack_vars[i]
+
+			terms = get_moi_constraint_row_terms(qp.A, i)
+			# @show terms, b, qp.c_lb[i], qp.c_ub[i]
+			if qp.c_lb[i] == qp.c_ub[i]
+				push!(terms, MOI.ScalarAffineTerm{T}(+1.0, slack_vars[i][1]))
+				push!(terms, MOI.ScalarAffineTerm{T}(-1.0, slack_vars[i][2]))
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, b), MOI.EqualTo(qp.c_lb[i])
+				))
+			elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(
+						[terms, MOI.ScalarAffineTerm{T}(+1.0, slack_vars[i][1])], b
+					), MOI.GreaterThan(qp.c_lb[i])
+				))
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(
+						[terms, MOI.ScalarAffineTerm{T}(-1.0, slack_vars[i][2])], b
+					), MOI.LessThan(qp.c_ub[i])
+				))
+			elseif qp.c_lb[i] != -Inf
+				push!(terms, MOI.ScalarAffineTerm{T}(+1.0, slack_vars[i][1]))
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, b), MOI.GreaterThan(qp.c_lb[i])
+				))
+			elseif qp.c_ub[i] != Inf
+				push!(terms, MOI.ScalarAffineTerm{T}(-1.0, slack_vars[i][1]))
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, b), MOI.LessThan(qp.c_ub[i])
+				))
+			end
 		end
-		if add_slack
-			u_term = MOI.ScalarAffineTerm{T}(1.0, u[i]);
-			MOI.Utilities.normalize_and_add_constraint(model, 
-				MOI.ScalarAffineFunction([u_term], 0.0), MOI.GreaterThan(0.0));
-			v_term = MOI.ScalarAffineTerm{T}(1.0, v[i]);
-			MOI.Utilities.normalize_and_add_constraint(model,
-				MOI.ScalarAffineFunction([v_term], 0.0), MOI.GreaterThan(0.0));
+	else
+		for i=1:m
+			terms = get_moi_constraint_row_terms(qp.A, i)
+			if qp.c_lb[i] == qp.c_ub[i] #This means the constraint is equality
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.EqualTo(qp.c_lb[i])
+				))
+			elseif qp.c_lb[i] != -Inf && qp.c_ub[i] != Inf && qp.c_lb[i] < qp.c_ub[i]
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
+				))
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
+				))
+			elseif qp.c_lb[i] != -Inf
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.GreaterThan(qp.c_lb[i])
+				))
+			elseif qp.c_ub[i] != Inf
+				push!(constr, MOI.Utilities.normalize_and_add_constraint(model,
+					MOI.ScalarAffineFunction(terms, qp.b[i]), MOI.LessThan(qp.c_ub[i])
+				))
+			end
 		end
 	end
+
+	# set the objective function
+	obj_terms = Array{MOI.ScalarAffineTerm{T},1}()
+	if !feasibility
+		for i in 1:n
+			push!(obj_terms, MOI.ScalarAffineTerm{T}(qp.c[i], MOI.VariableIndex(i)));
+		end
+	end
+	if add_slack
+		for i=1:m
+			append!(obj_terms, MOI.ScalarAffineTerm.(mu, slack_vars[i]))
+		end
+		# @show obj_terms
+	end
+	if isnothing(qp.Q)
+		MOI.set(model, 
+			MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), 
+			MOI.ScalarAffineFunction(obj_terms, c0))
+	elseif feasibility == true
+		@error "Feasibility restoration for QP is not supported."
+	else
+		obj_qp_terms = get_scalar_quadratic_terms(qp.Q)
+		MOI.set(model,
+			MOI.ObjectiveFunction{MOI.ScalarQuadraticFunction{T}}(),
+			MOI.ScalarQuadraticFunction(obj_terms, obj_qp_terms, c0))
+	end
+	MOI.set(model, MOI.ObjectiveSense(), sense)
 
 	MOI.optimize!(model)
 	status = MOI.get(model, MOI.TerminationStatus())
 
 	# TODO: These can be part of data.
 	Xsol = Tv(undef, n)
+	p_slack = Dict{Int,Vector{Float64}}()
 	lambda = Tv(undef, m)
 	mult_x_U = Tv(undef, n)
 	mult_x_L = Tv(undef, n)
@@ -141,11 +218,11 @@ function sub_optimize!(
 
 	if status == MOI.OPTIMAL
 		# @show MOI.get(model, MOI.ObjectiveValue())
-		Xsol .= MOI.get(model, MOI.VariablePrimal(), x);
-		if add_slack
-			Usol = MOI.get(model, MOI.VariablePrimal(), u);
-			Vsol = MOI.get(model, MOI.VariablePrimal(), v);
-			infeasibility += max(0.0, sum(Usol) + sum(Vsol))
+		Xsol .= MOI.get(model, MOI.VariablePrimal(), x)
+		for (i, slacks) in slack_vars
+			p_slack[i] = MOI.get(model, MOI.VariablePrimal(), slacks)
+			# @show MOI.get(model, MOI.VariablePrimal(), slacks)
+			infeasibility += sum(MOI.get(model, MOI.VariablePrimal(), slacks))
 		end
 
 		# extract the multipliers to constraints
@@ -187,7 +264,7 @@ function sub_optimize!(
 		@error "Unexpected status: $(status)"
 	end
 
-	return Xsol, lambda, mult_x_U, mult_x_L, infeasibility, status
+	return Xsol, lambda, mult_x_U, mult_x_L, p_slack, infeasibility, status
 end
 
 """

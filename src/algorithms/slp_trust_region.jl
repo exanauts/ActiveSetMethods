@@ -3,6 +3,7 @@ mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
 
     x::Tv # primal solution
     p::Tv
+    p_slack::Dict{Int,Tv}
     lambda::Tv
     mult_x_L::Tv
     mult_x_U::Tv
@@ -39,6 +40,7 @@ mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.problem = problem
         slp.x = Tv(undef, problem.n)
         slp.p = zeros(problem.n)
+        slp.p_slack = Dict()
         slp.lambda = zeros(problem.m)
         slp.mult_x_L = zeros(problem.n)
         slp.mult_x_U = zeros(problem.n)
@@ -103,7 +105,7 @@ function active_set_optimize!(slp::SlpTR)
     
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, lambda, mult_x_U, mult_x_L, slp.lp_infeas, status = sub_optimize!(slp, slp.Δ)
+        slp.p, lambda, mult_x_U, mult_x_L, slp.p_slack, slp.lp_infeas, status = sub_optimize!(slp, slp.Δ)
         # @show slp.lambda
 
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
@@ -117,10 +119,10 @@ function active_set_optimize!(slp::SlpTR)
             break
         elseif status == MOI.INFEASIBLE
             if slp.feasibility_restoration == true
+                @printf("Failed to find a feasible direction\n")
                 if slp.prim_infeas <= slp.options.tol_infeas
                     slp.ret = 6
                 else
-                    @printf("Failed to find a feasible direction\n")
                     slp.ret = 2
                 end
                 break
@@ -159,20 +161,12 @@ function active_set_optimize!(slp::SlpTR)
 
             if slp.feasibility_restoration
                 slp.feasibility_restoration = false
+                slp.iter += 1
+                continue
             else
                 slp.ret = 0
                 break
             end
-        end
-
-        if norm(slp.p, Inf) < 1.0e-12
-            if slp.prim_infeas <= slp.options.tol_infeas
-                slp.ret = 6
-            else
-                @printf("Failed to find a feasible direction\n")
-                slp.ret = 2
-            end
-            break
         end
         
         # Iteration counter limit
@@ -195,10 +189,6 @@ function active_set_optimize!(slp::SlpTR)
         end
         
         slp.iter += 1
-
-        if slp.feasibility_restoration == true
-            slp.feasibility_restoration = false
-        end
     end
     slp.problem.obj_val = slp.problem.eval_f(slp.x)
     slp.problem.status = Int(slp.ret)
@@ -219,81 +209,136 @@ sub_optimize!(slp::SlpTR, Δ) = sub_optimize!(
 )
 
 function step_quality(slp::SlpTR)
-    slp.phi = compute_phi(slp, slp.x + slp.p) - compute_phi(slp, slp.x)
+    slp.phi = compute_phi(slp, slp.x, slp.p) - compute_phi(slp, slp.x)
+    # @show compute_phi(slp, slp.x, slp.p), compute_phi(slp, slp.x)
+
+    ϕ_pre = compute_derivative(slp)
+    # if slp.feasibility_restoration
+    #     for (i,v) in slp.p_slack
+    #         ϕ_pre += sum(v)
+    #     end
+    # else
+    #     ϕ_pre = slp.df' * slp.p
+    # end
+
     ρ = 0.0
-    if slp.feasibility_restoration
-        ρ = -slp.phi
+    # @show slp.phi, ϕ_pre
+    if abs(ϕ_pre) > 0.0
+        ρ = slp.phi / ϕ_pre
+        if ρ <= 0
+            slp.Δ *= slp.alpha1
+        elseif ρ <= 0.25
+            slp.Δ *= slp.alpha2
+        elseif ρ > 0.75
+            slp.Δ = min(2*slp.Δ, slp.Δ_max)
+        end
     else
-        ϕ_pre = slp.df' * slp.p
-        if abs(ϕ_pre) > 0.0
-            ρ = slp.phi / ϕ_pre
-            if ρ <= 0
-                slp.Δ *= slp.alpha1
-            elseif ρ <= 0.25
-                slp.Δ *= slp.alpha2
-            elseif ρ > 0.75
-                slp.Δ = min(2*slp.Δ, slp.Δ_max)
-            end
-        else
-            ρ = -slp.phi
-            if abs(slp.phi) < 1.e-8
-                if slp.feasibility_restoration
-                    slp.feasibility_restoration = false
-                else
-                    if slp.prim_infeas <= slp.options.tol_infeas
-                        if slp.dual_infeas <= slp.options.tol_residual &&
-                            slp.compl <= slp.options.tol_residual
-                            slp.ret = 0
-                        else
-                            slp.ret = 6
-                        end
+        ρ = -slp.phi
+        if abs(slp.phi) < 1.e-8
+            if slp.feasibility_restoration
+                slp.feasibility_restoration = false
+            else
+                if slp.prim_infeas <= slp.options.tol_infeas
+                    if slp.dual_infeas <= slp.options.tol_residual &&
+                        slp.compl <= slp.options.tol_residual
+                        slp.ret = 0
                     else
-                        slp.ret = 2
+                        slp.ret = 6
                     end
+                else
+                    slp.ret = 2
                 end
             end
         end
     end
+
     return ρ
 end
 
-function compute_nu!(slp::SlpTR)
+# NOTE: taken from the line search
+function compute_derivative(slp::SlpTR)
+    D = 0.0
     if slp.feasibility_restoration
-        if slp.iter == 1
-            fill!(slp.ν, 1.0)
-        else
-            for i = 1:slp.problem.m
-                slp.ν[i] = abs(slp.lambda[i])
-            end
+        for (i,v) in slp.p_slack
+            D += sum(v)
+        end
+        for i = 1:slp.problem.m
+            viol = max(0.0, max(slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]))
+            lhs = slp.E[i] - viol
+            D -= slp.ν[i]*maximum([
+                0.0, 
+                lhs - slp.problem.g_U[i], 
+                slp.problem.g_L[i] - lhs
+            ])
         end
     else
-        if slp.iter == 1
-            norm_df = norm(slp.df)
-            J = compute_jacobian_matrix(slp)
-            for i = 1:slp.problem.m
-                slp.ν[i] = max(1.0, norm_df / norm(J[i,:]))
+        D = slp.df' * slp.p
+        for i = 1:slp.problem.m
+            if slp.E[i] > slp.problem.g_U[i]
+                D -= slp.ν[i]*(slp.E[i] - slp.problem.g_U[i])
+            elseif slp.E[i] < slp.problem.g_L[i]
+                D -= slp.ν[i]*(slp.problem.g_L[i] - slp.E[i])
             end
-        else
-            for i = 1:slp.problem.m
-                slp.ν[i] = max(slp.ν[i], abs(slp.lambda[i]))
-            end
+        end
+    end
+    return D
+end
+
+function compute_nu!(slp::SlpTR)
+    if slp.iter == 1
+        norm_df = ifelse(slp.feasibility_restoration, 1.0, norm(slp.df))
+        J = compute_jacobian_matrix(slp)
+        for i = 1:slp.problem.m
+            slp.ν[i] = max(1.0, norm_df / max(1.0, norm(J[i,:])))
+        end
+    else
+        for i = 1:slp.problem.m
+            slp.ν[i] = max(slp.ν[i], abs(slp.lambda[i]))
         end
     end
 end
 
 # merit function
-function compute_phi(slp::SlpTR, x::Tv) where {T, Tv<:AbstractArray{T}}
-    E = slp.problem.eval_g(x, zeros(slp.problem.m))
-    ϕ = ifelse(slp.feasibility_restoration, 0.0, slp.problem.eval_f(x))
-    for i = 1:slp.problem.m
-        if E[i] > slp.problem.g_U[i]
-            ϕ += slp.ν[i]*(E[i] - slp.problem.g_U[i])
-        elseif E[i] < slp.problem.g_L[i]
-            ϕ += slp.ν[i]*(slp.problem.g_L[i] - E[i])
+function compute_phi(slp::SlpTR, x::Tv, α::T, p::Tv) where {T, Tv<:AbstractArray{T}}
+    ϕ = 0.0
+    xp = x + α * p
+    E = ifelse(α == 0.0, slp.E, slp.problem.eval_g(xp, zeros(slp.problem.m)))
+    if slp.feasibility_restoration
+        p_slack = slp.p_slack
+        ϕ = slp.prim_infeas
+        for (i,v) in p_slack
+            ϕ += α * sum(v)
+        end
+        for i = 1:slp.problem.m
+            viol = max(0.0, max(slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]))
+            lhs = E[i] - viol
+            if slp.problem.g_L[i] > -Inf && slp.problem.g_U[i] < Inf
+                lhs += α * (p_slack[i][1] - p_slack[i][2])
+            elseif slp.problem.g_L[i] > -Inf
+                lhs += α * p_slack[i][1]
+            elseif slp.problem.g_U[i] < Inf
+                lhs -= α * p_slack[i][1]
+            end
+            ϕ += slp.ν[i]*maximum([
+                0.0, 
+                lhs - slp.problem.g_U[i], 
+                slp.problem.g_L[i] - lhs
+            ])
+        end
+    else
+        ϕ = slp.problem.eval_f(xp)
+        for i = 1:slp.problem.m
+            if E[i] > slp.problem.g_U[i]
+                ϕ += slp.ν[i]*(E[i] - slp.problem.g_U[i])
+            elseif E[i] < slp.problem.g_L[i]
+                ϕ += slp.ν[i]*(slp.problem.g_L[i] - E[i])
+            end
         end
     end
     return ϕ
 end
+compute_phi(slp::SlpTR, x::Tv) where {T, Tv<:AbstractArray{T}} = compute_phi(slp, x, 0.0, slp.p)
+compute_phi(slp::SlpTR, x::Tv, p::Tv) where {T, Tv<:AbstractArray{T}} = compute_phi(slp, x, 1.0, p)
 
 function print_header(slp::SlpTR)
     if slp.options.OutputFlag == 0
