@@ -1,39 +1,41 @@
+"""
+    Sequential linear programming with line search
+"""
 mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
-    problem::Model{T,Tv,Tt}
+    problem::Model{T,Tv,Tt} # problem data
 
     x::Tv # primal solution
-    p::Tv
-    p_slack::Dict{Int,Tv}
-    lambda::Tv
-    mult_x_L::Tv
-    mult_x_U::Tv
-    
-    f::T
-    df::Tv
-    E::Tv
-    dE::Tv
-    phi::T
-    ν::Tv
-    directional_derivative::T
+    p::Tv # search direction
+    p_slack::Dict{Int,Tv} # search direction at feasibility restoration phase
+    lambda::Tv # Lagrangian dual multiplier
+    mult_x_L::Tv # reduced cost for lower bound
+    mult_x_U::Tv # reduced cost for upper bound
 
-    norm_E::T # norm of constraint violations
-    alpha::T
+    # Evaluations at `x`
+    f::T # objective function
+    df::Tv # gradient
+    E::Tv # constraint
+    dE::Tv # Jacobian
 
-    lp_infeas::T
-    prim_infeas::T
-    dual_infeas::T
-    compl::T
+    phi::T # merit function value
+    ν::Tv # penalty parameters for the merit function
+    directional_derivative::T # directional derivative
+    alpha::T # stepsize
 
-    optimizer::MOI.AbstractOptimizer
+    prim_infeas::T # primal infeasibility at `x`
+    dual_infeas::T # dual (approximate?) infeasibility
+    compl::T # complementary slackness
+
+    optimizer::MOI.AbstractOptimizer # LP solver
 
     options::Parameters
 
-    feasibility_restoration::Bool
-    iter::Int
-    ret::Int
-    start_time::Float64
+    feasibility_restoration::Bool # indicator for feasibility restoration
+    iter::Int # iteration counter
+    ret::Int # solution status
+    start_time::Float64 # solution start time
 
-    function SlpLS(problem::Model{T,Tv,Tt}) where {T, Tv<:AbstractArray{T}, Tt}
+    function SlpLS(problem::Model{T,Tv,Tt}) where {T,Tv<:AbstractArray{T},Tt}
         slp = new{T,Tv,Tt}()
         slp.problem = problem
         slp.x = Tv(undef, problem.n)
@@ -48,10 +50,8 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.phi = Inf
         slp.ν = Tv(undef, problem.m)
 
-        slp.norm_E = 0.0
         slp.alpha = 1.0
 
-        slp.lp_infeas = Inf
         slp.prim_infeas = Inf
         slp.dual_infeas = Inf
         slp.compl = Inf
@@ -68,17 +68,24 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     end
 end
 
+"""
+    run!
+
+Run the line-search SLP algorithm
+"""
 function run!(slp::SlpLS)
 
     slp.start_time = time()
 
     if slp.options.OutputFlag == 1
-        sparsity_val = slp.problem.m > 0 ? length(slp.problem.j_str) / (slp.problem.m * slp.problem.n) : 0.0
+        sparsity_val = ifelse(
+            slp.problem.m > 0,
+            length(slp.problem.j_str) / (slp.problem.m * slp.problem.n),
+            0.0,
+        )
         @printf("LP subproblem sparsity: %e\n", sparsity_val)
         add_statistics(slp.problem, "sparsity", sparsity_val)
     end
-
-    Δ = slp.options.tr_size
 
     # Set initial point from MOI
     @assert length(slp.x) == length(slp.problem.x)
@@ -96,19 +103,18 @@ function run!(slp::SlpLS)
     slp.iter = 1
     is_valid_step = true
     while true
-        
+
         # evaluate function, constraints, gradient, Jacobian
         eval_functions!(slp)
         slp.alpha = 0.0
-        slp.norm_E = norm_violations(slp)
         slp.prim_infeas = norm_violations(slp, Inf)
         slp.dual_infeas = KT_residuals(slp)
         slp.compl = norm_complementarity(slp)
-    
+
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, lambda, mult_x_U, mult_x_L, slp.p_slack, slp.lp_infeas, status = sub_optimize!(slp, Δ)
-        # @show slp.lp_infeas
+        slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status =
+            sub_optimize!(slp, slp.options.tr_size)
 
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
 
@@ -135,19 +141,12 @@ function run!(slp::SlpLS)
             end
         end
 
-        # update multipliers
-        slp.lambda .= lambda
-        slp.mult_x_U .= mult_x_U
-        slp.mult_x_L .= mult_x_L
-    
         compute_nu!(slp)
         slp.phi = compute_phi(slp)
         slp.directional_derivative = compute_derivative(slp)
-        
-        if slp.lp_infeas <= slp.options.tol_infeas
-            # step size computation
-            is_valid_step = compute_alpha(slp)
-        end
+
+        # step size computation
+        is_valid_step = compute_alpha(slp)
 
         print_header(slp)
         print(slp)
@@ -171,8 +170,9 @@ function run!(slp::SlpLS)
 
         # Check the first-order optimality condition
         if slp.prim_infeas <= slp.options.tol_infeas &&
-            slp.compl <= slp.options.tol_residual &&
-            min(-slp.directional_derivative, slp.alpha * norm(slp.p, Inf)) <= slp.options.tol_direction
+           slp.compl <= slp.options.tol_residual &&
+           min(-slp.directional_derivative, slp.alpha * norm(slp.p, Inf)) <=
+           slp.options.tol_direction
             if slp.feasibility_restoration
                 slp.feasibility_restoration = false
             else
@@ -180,7 +180,7 @@ function run!(slp::SlpLS)
                 break
             end
         end
-        
+
         # Iteration counter limit
         if slp.iter >= slp.options.max_iter
             slp.ret = -1
@@ -203,15 +203,6 @@ function run!(slp::SlpLS)
     slp.problem.mult_x_U .= slp.mult_x_U
     slp.problem.mult_x_L .= slp.mult_x_L
 end
-
-sub_optimize!(slp::SlpLS, Δ) = sub_optimize!(
-	slp.optimizer,
-	LpData(slp),
-	Inf,
-	slp.x,
-	Δ,
-    slp.feasibility_restoration
-)
 
 """
     compute_alpha
@@ -244,14 +235,17 @@ function compute_alpha(slp::SlpLS)::Bool
     return is_valid
 end
 
-# merit function
+"""
+    compute_nu!
 
+Compute the penalty parameter for the merit function. This is based on the paper: https://doi.org/10.1016/j.epsr.2018.09.002
+"""
 function compute_nu!(slp::SlpLS)
     if slp.iter == 1
         norm_df = ifelse(slp.feasibility_restoration, 1.0, norm(slp.df))
         J = compute_jacobian_matrix(slp)
         for i = 1:slp.problem.m
-            slp.ν[i] = max(1.0, norm_df / max(1.0, norm(J[i,:])))
+            slp.ν[i] = max(1.0, norm_df / max(1.0, norm(J[i, :])))
         end
     else
         for i = 1:slp.problem.m
@@ -260,75 +254,18 @@ function compute_nu!(slp::SlpLS)
     end
 end
 
+"""
+    compute_phi
+
+Evaluate and return the merit function value at the current point x
+"""
 compute_phi(slp::SlpLS) = compute_phi(slp, slp.x, 0.0, slp.p)
-function compute_phi(slp::SlpLS, x::Tv, α::T, p::Tv) where {T, Tv<:AbstractArray{T}}
-    ϕ = 0.0
-    xp = x + α * p
-    E = ifelse(α == 0.0, slp.E, slp.problem.eval_g(xp, zeros(slp.problem.m)))
-    if slp.feasibility_restoration
-        p_slack = slp.p_slack
-        ϕ = slp.prim_infeas
-        for (i,v) in p_slack
-            ϕ += α * sum(v)
-        end
-        for i = 1:slp.problem.m
-            viol = max(0.0, max(slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]))
-            lhs = E[i] - viol
-            if slp.problem.g_L[i] > -Inf && slp.problem.g_U[i] < Inf
-                lhs += α * (p_slack[i][1] - p_slack[i][2])
-            elseif slp.problem.g_L[i] > -Inf
-                lhs += α * p_slack[i][1]
-            elseif slp.problem.g_U[i] < Inf
-                lhs -= α * p_slack[i][1]
-            end
-            ϕ += slp.ν[i]*maximum([
-                0.0, 
-                lhs - slp.problem.g_U[i], 
-                slp.problem.g_L[i] - lhs
-            ])
-        end
-    else
-        ϕ = slp.problem.eval_f(xp)
-        for i = 1:slp.problem.m
-            if E[i] > slp.problem.g_U[i]
-                ϕ += slp.ν[i]*(E[i] - slp.problem.g_U[i])
-            elseif E[i] < slp.problem.g_L[i]
-                ϕ += slp.ν[i]*(slp.problem.g_L[i] - E[i])
-            end
-        end
-    end
-    return ϕ
-end
 
-# directional derivative
-function compute_derivative(slp::SlpLS)
-    D = 0.0
-    if slp.feasibility_restoration
-        for (i,v) in slp.p_slack
-            D += sum(v)
-        end
-        for i = 1:slp.problem.m
-            viol = max(0.0, max(slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]))
-            lhs = slp.E[i] - viol
-            D -= slp.ν[i]*maximum([
-                0.0, 
-                lhs - slp.problem.g_U[i], 
-                slp.problem.g_L[i] - lhs
-            ])
-        end
-    else
-        D = slp.df' * slp.p
-        for i = 1:slp.problem.m
-            if slp.E[i] > slp.problem.g_U[i]
-                D -= slp.ν[i]*(slp.E[i] - slp.problem.g_U[i])
-            elseif slp.E[i] < slp.problem.g_L[i]
-                D -= slp.ν[i]*(slp.problem.g_L[i] - slp.E[i])
-            end
-        end
-    end
-    return D
-end
+"""
+    print_header
 
+Print the header of iteration information.
+"""
 function print_header(slp::SlpLS)
     if slp.options.OutputFlag == 0
         return
@@ -351,6 +288,11 @@ function print_header(slp::SlpLS)
     end
 end
 
+"""
+    print
+
+Print iteration information.
+"""
 function print(slp::SlpLS)
     if slp.options.OutputFlag == 0
         return
@@ -363,7 +305,7 @@ function print(slp::SlpLS)
     # @printf("  %+.8e", slp.df' * slp.p)
     @printf("  %6.8e", slp.alpha)
     @printf("  %6.8e", norm(slp.p, Inf))
-    @printf("  %6.8e", slp.alpha*norm(slp.p, Inf))
+    @printf("  %6.8e", slp.alpha * norm(slp.p, Inf))
     # @printf("  %.8e", norm(slp.df))
     @printf("  %6.8e", slp.prim_infeas)
     @printf("  %.8e", slp.dual_infeas)
@@ -372,6 +314,11 @@ function print(slp::SlpLS)
     @printf("\n")
 end
 
+"""
+    collect_statistics
+
+Collect iteration information.
+"""
 function collect_statistics(slp::SlpLS)
     if slp.options.StatisticsFlag == 0
         return

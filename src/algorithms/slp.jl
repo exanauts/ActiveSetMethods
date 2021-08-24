@@ -20,6 +20,114 @@ function LpData(slp::AbstractSlpOptimizer)
 		slp.problem.x_U)
 end
 
+sub_optimize!(slp::AbstractSlpOptimizer, Δ) = sub_optimize!(
+	slp.optimizer,
+	LpData(slp),
+	slp.x,
+	Δ,
+    slp.feasibility_restoration
+)
+
+"""
+    compute_nu!
+
+Compute the penalty parameter for the merit function. This is based on the paper: https://doi.org/10.1016/j.epsr.2018.09.002
+"""
+function compute_nu!(slp::AbstractSlpOptimizer)
+    if slp.iter == 1
+        norm_df = ifelse(slp.feasibility_restoration, 1.0, norm(slp.df))
+        J = compute_jacobian_matrix(slp)
+        for i = 1:slp.problem.m
+            slp.ν[i] = max(1.0, norm_df / max(1.0, norm(J[i, :])))
+        end
+    else
+        for i = 1:slp.problem.m
+            slp.ν[i] = max(slp.ν[i], abs(slp.lambda[i]))
+        end
+    end
+end
+
+"""
+    compute_phi
+
+Evaluate and return the merit function value for a given point x + α * p.
+
+# Arguments
+- `slp`: SlpLS structure
+- `x`: the current solution point
+- `α`: step size taken from `x`
+- `p`: direction taken from `x`
+"""
+function compute_phi(slp::AbstractSlpOptimizer, x::Tv, α::T, p::Tv) where {T,Tv<:AbstractArray{T}}
+    ϕ = 0.0
+    xp = x + α * p
+    E = ifelse(α == 0.0, slp.E, slp.problem.eval_g(xp, zeros(slp.problem.m)))
+    if slp.feasibility_restoration
+        p_slack = slp.p_slack
+        ϕ = slp.prim_infeas
+        for (i, v) in p_slack
+            ϕ += α * sum(v)
+        end
+        for i = 1:slp.problem.m
+            viol =
+                maximum([0.0, slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]])
+            lhs = E[i] - viol
+            if slp.problem.g_L[i] > -Inf && slp.problem.g_U[i] < Inf
+                lhs += α * (p_slack[i][1] - p_slack[i][2])
+            elseif slp.problem.g_L[i] > -Inf
+                lhs += α * p_slack[i][1]
+            elseif slp.problem.g_U[i] < Inf
+                lhs -= α * p_slack[i][1]
+            end
+            ϕ +=
+                slp.ν[i] *
+                maximum([0.0, lhs - slp.problem.g_U[i], slp.problem.g_L[i] - lhs])
+        end
+    else
+        ϕ = slp.problem.eval_f(xp)
+        for i = 1:slp.problem.m
+            if E[i] > slp.problem.g_U[i]
+                ϕ += slp.ν[i] * (E[i] - slp.problem.g_U[i])
+            elseif E[i] < slp.problem.g_L[i]
+                ϕ += slp.ν[i] * (slp.problem.g_L[i] - E[i])
+            end
+        end
+    end
+    return ϕ
+end
+
+"""
+    compute_derivative
+
+Compute the directional derivative at current solution for a given direction.
+"""
+function compute_derivative(slp::AbstractSlpOptimizer)
+    D = 0.0
+    if slp.feasibility_restoration
+        for (i, v) in slp.p_slack
+            D += sum(v)
+        end
+        for i = 1:slp.problem.m
+            viol =
+                maximum([0.0, slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]])
+            lhs = slp.E[i] - viol
+            D -=
+                slp.ν[i] *
+                maximum([0.0, lhs - slp.problem.g_U[i], slp.problem.g_L[i] - lhs])
+        end
+    else
+        D = slp.df' * slp.p
+        for i = 1:slp.problem.m
+            if slp.E[i] > slp.problem.g_U[i]
+                D -= slp.ν[i] * (slp.E[i] - slp.problem.g_U[i])
+            elseif slp.E[i] < slp.problem.g_L[i]
+                D -= slp.ν[i] * (slp.problem.g_L[i] - slp.E[i])
+            end
+        end
+    end
+    return D
+end
+
 """
     KT_residuals
 
