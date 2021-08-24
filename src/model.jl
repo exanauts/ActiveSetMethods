@@ -71,7 +71,7 @@ function optimize!(model::Model)
             elseif model.parameters.algorithm == "Trust Region"
                 slp = SlpTR(model)
             end
-            active_set_optimize!(slp)
+            run!(slp)
         else
             @error "The method is not defined"
         end

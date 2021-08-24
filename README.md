@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/exanauts/ActiveSetMethods/branch/master/graph/badge.svg)](https://codecov.io/gh/exanauts/ActiveSetMethods)
 
 This is a Julia package that implements active set methods for continuous nonlinear optimization.
-The package currently implements a sequential linear programming method based on line search.
+The package currently implements sequential linear programming methods.
 
 ## Installation
 
@@ -30,12 +30,16 @@ using GLPK # can be any LP solver
 n = 1
 
 # Build nonlinear problem model via JuMP
-model = Model(optimizer_with_attributes(ActiveSetMethods.Optimizer, "external_optimizer" => GLPK.Optimizer))
+model = Model(optimizer_with_attributes(
+    ActiveSetMethods.Optimizer, 
+    "external_optimizer" => GLPK.Optimizer,
+    "algorithm" => "Line Search",
+))
 @variable(model, x)
 @objective(model, Min, x^2 + x)
 @NLconstraint(model, x^2 - x == 2)
 
-# Solve optimization problem with Nlopt
+# Solve optimization problem
 JuMP.optimize!(model)
 
 # Retrieve solution
