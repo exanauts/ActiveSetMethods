@@ -72,7 +72,7 @@ mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
     end
 end
 
-function active_set_optimize!(slp::SlpTR)
+function run!(slp::SlpTR)
 
     slp.start_time = time()
 
