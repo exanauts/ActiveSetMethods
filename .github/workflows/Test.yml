@@ -1,13 +1,22 @@
 name: Run tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - master
+    paths-ignore:
+    - 'README.md'
+    - 'Manifest.toml'
+  pull_request:
+    branches:
+    - master
 
 jobs:
   test-github-cpuonly:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        julia-version: ['1.5']
+        julia-version: ['1.6']
         julia-arch: [x64]
         os: [ubuntu-latest]
 

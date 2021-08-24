@@ -66,13 +66,25 @@ function optimize!(model::Model)
         @error "`external_optimizer` parameter must be set for subproblem solutions."
     else
         if model.parameters.method == "SLP"
-            slp = SlpLS(model)
             if model.parameters.algorithm == "Line Search"
-                active_set_optimize!(slp);
+                slp = SlpLS(model)
+            elseif model.parameters.algorithm == "Trust Region"
+                slp = SlpTR(model)
             end
+            active_set_optimize!(slp)
         else
             @error "The method is not defined"
         end
     end
     return nothing
+end
+
+function add_statistics(model::Model, name::String, value::Float64)
+    if model.parameters.StatisticsFlag == 0
+        return
+    end
+    if !haskey(model.statistics, name)
+        model.statistics[name] = Array{Float64,1}()
+    end
+    push!(model.statistics[name], value)
 end
