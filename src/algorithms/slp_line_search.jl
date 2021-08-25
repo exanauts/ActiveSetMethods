@@ -209,9 +209,9 @@ function active_set_optimize!(slp::SlpLS)
         end
 
         # Check the first-order optimality condition
-        if prim_infeas <= slp.options.tol_infeas #&&
-            #dual_infeas <= slp.options.tol_residual &&
-            #compl <= slp.options.tol_residual
+        if prim_infeas <= slp.options.tol_infeas &&
+            dual_infeas <= slp.options.tol_residual &&
+            compl <= slp.options.tol_residual
             slp.ret = 0
             break
         end
