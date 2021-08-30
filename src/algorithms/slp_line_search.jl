@@ -152,7 +152,7 @@ function active_set_optimize!(slp::SlpLS)
         compute_mu_merit!(slp)
         slp.phi = compute_phi(slp)
         slp.directional_derivative = compute_derivative(slp)
-        prim_infeas = norm_violations(slp, 1)
+        prim_infeas = norm_violations(slp, Inf)
         
         dual_infeas = KT_residuals(slp)
         compl = norm_complementarity(slp)
