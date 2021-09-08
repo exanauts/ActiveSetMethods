@@ -34,6 +34,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     iter::Int # iteration counter
     ret::Int # solution status
     start_time::Float64 # solution start time
+    start_iter_time::Float64 # iteration start time
 
     function SlpLS(problem::Model{T,Tv,Tt}) where {T,Tv<:AbstractArray{T},Tt}
         slp = new{T,Tv,Tt}()
@@ -63,6 +64,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.iter = 1
         slp.ret = -5
         slp.start_time = 0.0
+        slp.start_iter_time = 0.0
 
         return slp
     end
@@ -103,6 +105,8 @@ function run!(slp::SlpLS)
     slp.iter = 1
     is_valid_step = true
     while true
+
+        slp.start_iter_time = time()
 
         # evaluate function, constraints, gradient, Jacobian
         eval_functions!(slp)
@@ -333,5 +337,6 @@ function collect_statistics(slp::SlpLS)
     # add_statistics(slp.problem, "inf_du", dual_infeas)
     add_statistics(slp.problem, "compl", slp.compl)
     add_statistics(slp.problem, "alpha", slp.alpha)
+    add_statistics(slp.problem, "iter_time", time() - slp.start_iter_time)
     add_statistics(slp.problem, "time_elapsed", time() - slp.start_time)
 end
