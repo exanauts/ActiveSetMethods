@@ -38,7 +38,10 @@ function compute_nu!(slp::AbstractSlpOptimizer)
         norm_df = ifelse(slp.feasibility_restoration, 1.0, norm(slp.df))
         J = compute_jacobian_matrix(slp)
         for i = 1:slp.problem.m
-            slp.ν[i] = max(1.0, norm_df / max(1.0, norm(J[i, :])))
+            slp.ν[i] = norm_df
+            if norm(J[i, :]) > 0
+                slp.ν[i] /= norm(J[i, :])
+            end
         end
     else
         for i = 1:slp.problem.m
