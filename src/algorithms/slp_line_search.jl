@@ -222,7 +222,7 @@ function compute_alpha(slp::SlpLS)::Bool
     while phi_x_p > slp.phi + eta * slp.alpha * slp.directional_derivative
         # The step size can become too small.
         if slp.alpha < slp.options.min_alpha
-            # @printf("Descent step cannot be computed.\n")
+            @printf("Descent step cannot be computed.\n")
             # @printf("Feasibility restoration is required but not implemented yet.\n")
             if slp.feasibility_restoration
                 slp.ret = -3
@@ -235,7 +235,7 @@ function compute_alpha(slp::SlpLS)::Bool
         slp.alpha *= slp.options.tau
         phi_x_p = compute_phi(slp, slp.x, slp.alpha, slp.p)
     end
-    # @show phi_x_p, slp.phi, slp.directional_derivative
+    # @show phi_x_p, slp.phi, slp.alpha, slp.directional_derivative, is_valid
     return is_valid
 end
 
