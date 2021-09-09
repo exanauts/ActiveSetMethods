@@ -156,35 +156,6 @@ function run!(slp::SlpLS)
         print(slp)
         collect_statistics(slp)
 
-        # Failed to find a step size
-        if slp.ret == -3
-            @printf("Failed to find a step size\n")
-            if slp.prim_infeas <= slp.options.tol_infeas
-                slp.ret = 6
-            else
-                slp.ret = 2
-            end
-            break
-        end
-
-        if !is_valid_step
-            slp.iter += 1
-            continue
-        end
-
-        # Check the first-order optimality condition
-        if slp.prim_infeas <= slp.options.tol_infeas &&
-           slp.compl <= slp.options.tol_residual &&
-           min(-slp.directional_derivative, slp.alpha * norm(slp.p, Inf)) <=
-           slp.options.tol_direction
-            if slp.feasibility_restoration
-                slp.feasibility_restoration = false
-            else
-                slp.ret = 0
-                break
-            end
-        end
-
         # Iteration counter limit
         if slp.iter >= slp.options.max_iter
             slp.ret = -1
@@ -192,6 +163,36 @@ function run!(slp::SlpLS)
                 slp.ret = 6
             end
             break
+        end
+
+        if (
+            slp.prim_infeas <= slp.options.tol_infeas &&
+            slp.compl <= slp.options.tol_residual
+        ) || norm(slp.p, Inf) <= slp.options.tol_direction
+            if slp.feasibility_restoration
+                slp.feasibility_restoration = false
+                slp.iter += 1
+                continue
+            elseif slp.dual_infeas <= slp.options.tol_residual
+                slp.ret = 0
+                break
+            end
+        end
+
+        # Failed to find a step size
+        if !is_valid_step
+            if slp.ret == -3
+                @printf("Failed to find a step size\n")
+                if slp.prim_infeas <= slp.options.tol_infeas
+                    slp.ret = 6
+                else
+                    slp.ret = 2
+                end
+                break
+            end
+
+            slp.iter += 1
+            continue
         end
 
         # update primal points

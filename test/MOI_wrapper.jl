@@ -7,7 +7,6 @@ const MOIB = MOI.Bridges
 const optimizer = ActiveSetMethods.Optimizer()
 MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer)
 MOI.set(optimizer, MOI.RawParameter("max_iter"), 1000)
-MOI.set(optimizer, MOI.RawParameter("tol_direction"), 1.e-2)
 MOI.set(optimizer, MOI.RawParameter("tol_residual"), 1.e-2)
 MOI.set(optimizer, MOI.RawParameter("tol_infeas"), 1.e-2)
 MOI.set(optimizer, MOI.RawParameter("OutputFlag"), 0)
