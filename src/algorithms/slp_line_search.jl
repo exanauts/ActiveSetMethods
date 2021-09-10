@@ -87,6 +87,8 @@ function run!(slp::SlpLS)
         )
         @printf("LP subproblem sparsity: %e\n", sparsity_val)
         add_statistics(slp.problem, "sparsity", sparsity_val)
+    else
+        Logging.disable_logging(Logging.Info)
     end
 
     # Set initial point from MOI
