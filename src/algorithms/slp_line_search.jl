@@ -119,8 +119,9 @@ function run!(slp::SlpLS)
 
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status = sub_optimize!(slp)
-        
+        slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status =
+            sub_optimize!(slp)
+
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
 
         if status ∉ [MOI.OPTIMAL, MOI.INFEASIBLE]

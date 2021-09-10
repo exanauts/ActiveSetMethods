@@ -48,12 +48,7 @@ mutable struct QpModel{T,Tv<:AbstractArray{T},Tm<:AbstractMatrix{T}} <: Abstract
     end
 end
 
-function create_model!(
-    qp::QpModel{T,Tv,Tm},
-    x_k::Tv,
-    Δ::T,
-    tol_error = 0.0,
-) where {T,Tv,Tm}
+function create_model!(qp::QpModel{T,Tv,Tm}, x_k::Tv, Δ::T, tol_error = 0.0) where {T,Tv,Tm}
 
     # empty optimizer just in case
     MOI.empty!(qp.model)
@@ -146,49 +141,58 @@ function create_model!(
         c_lb = (abs(c_lb) <= tol_error) ? 0.0 : c_lb
 
         if qp.data.c_lb[i] == qp.data.c_ub[i] #This means the constraint is equality
-            push!(qp.constr, 
+            push!(
+                qp.constr,
                 MOI.add_constraint(
-                    qp.model, 
-                    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(
-                        [1.0; -1.0], 
-                        [qp.slack_vars[i][1]; qp.slack_vars[i][2]]
-                    ), 0.0), 
-                    MOI.EqualTo(c_lb)
-                )
+                    qp.model,
+                    MOI.ScalarAffineFunction(
+                        MOI.ScalarAffineTerm.(
+                            [1.0; -1.0],
+                            [qp.slack_vars[i][1]; qp.slack_vars[i][2]],
+                        ),
+                        0.0,
+                    ),
+                    MOI.EqualTo(c_lb),
+                ),
             )
-        elseif qp.data.c_lb[i] != -Inf && qp.data.c_ub[i] != Inf && qp.data.c_lb[i] < qp.data.c_ub[i]
-            push!(qp.constr, 
+        elseif qp.data.c_lb[i] != -Inf &&
+               qp.data.c_ub[i] != Inf &&
+               qp.data.c_lb[i] < qp.data.c_ub[i]
+            push!(
+                qp.constr,
                 MOI.add_constraint(
-                    qp.model, 
-                    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(
-                        [1.0], 
-                        [qp.slack_vars[i][1]]
-                    ), 0.0), 
-                    MOI.GreaterThan(c_lb)
-                )
+                    qp.model,
+                    MOI.ScalarAffineFunction(
+                        MOI.ScalarAffineTerm.([1.0], [qp.slack_vars[i][1]]),
+                        0.0,
+                    ),
+                    MOI.GreaterThan(c_lb),
+                ),
             )
             push!(qp.adj, i)
         elseif qp.data.c_lb[i] != -Inf
-            push!(qp.constr, 
+            push!(
+                qp.constr,
                 MOI.add_constraint(
-                    qp.model, 
-                    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(
-                        [1.0], 
-                        [qp.slack_vars[i][1]]
-                    ), 0.0), 
-                    MOI.GreaterThan(c_lb)
-                )
+                    qp.model,
+                    MOI.ScalarAffineFunction(
+                        MOI.ScalarAffineTerm.([1.0], [qp.slack_vars[i][1]]),
+                        0.0,
+                    ),
+                    MOI.GreaterThan(c_lb),
+                ),
             )
         elseif qp.data.c_ub[i] != Inf
-            push!(qp.constr, 
+            push!(
+                qp.constr,
                 MOI.add_constraint(
-                    qp.model, 
-                    MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(
-                        [-1.0], 
-                        [qp.slack_vars[i][1]]
-                    ), 0.0), 
-                    MOI.LessThan(c_ub)
-                )
+                    qp.model,
+                    MOI.ScalarAffineFunction(
+                        MOI.ScalarAffineTerm.([-1.0], [qp.slack_vars[i][1]]),
+                        0.0,
+                    ),
+                    MOI.LessThan(c_ub),
+                ),
             )
         end
     end
@@ -196,15 +200,16 @@ function create_model!(
     for i in qp.adj
         c_ub = qp.data.c_ub[i] - qp.data.b[i]
         c_ub = (abs(c_ub) <= tol_error) ? 0.0 : c_ub
-        push!(qp.constr, 
+        push!(
+            qp.constr,
             MOI.add_constraint(
-                qp.model, 
-                MOI.ScalarAffineFunction(MOI.ScalarAffineTerm.(
-                    [-1.0],
-                    [qp.slack_vars[i][2]]
-                ), 0.0), 
-                MOI.LessThan(c_ub)
-            )
+                qp.model,
+                MOI.ScalarAffineFunction(
+                    MOI.ScalarAffineTerm.([-1.0], [qp.slack_vars[i][2]]),
+                    0.0,
+                ),
+                MOI.LessThan(c_ub),
+            ),
         )
     end
 end
@@ -244,14 +249,26 @@ function sub_optimize!(
 
     if feasibility
         # set objective coefficient
-        MOI.modify(qp.model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), MOI.ScalarConstantChange(0.0))
-        for i in 1:n
-            MOI.modify(qp.model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), MOI.ScalarCoefficientChange(MOI.VariableIndex(i), 0.0))
+        MOI.modify(
+            qp.model,
+            MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+            MOI.ScalarConstantChange(0.0),
+        )
+        for i = 1:n
+            MOI.modify(
+                qp.model,
+                MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+                MOI.ScalarCoefficientChange(MOI.VariableIndex(i), 0.0),
+            )
         end
 
         # set slack objective coefficient
         for (_, slacks) in qp.slack_vars, s in slacks
-            MOI.modify(qp.model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), MOI.ScalarCoefficientChange(s, 1.0))
+            MOI.modify(
+                qp.model,
+                MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+                MOI.ScalarCoefficientChange(s, 1.0),
+            )
         end
 
         # set optimization sense
@@ -276,41 +293,86 @@ function sub_optimize!(
                 viol = qp.data.c_lb[i] - qp.data.b[i]
             end
             b[i] -= abs(viol)
-    
+
             # Add bound constraints
             if length(qp.slack_vars[i]) == 2
                 if viol < 0
                     if do_transform
-                        qp.constr_slack[constr_index] = MOI.transform(qp.model, qp.constr_slack[constr_index], MOI.GreaterThan(0.0))
+                        qp.constr_slack[constr_index] = MOI.transform(
+                            qp.model,
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(0.0),
+                        )
                     else
-                        MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_slack[constr_index], MOI.GreaterThan(0.0))
+                        MOI.set(
+                            qp.model,
+                            MOI.ConstraintSet(),
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(0.0),
+                        )
                     end
                     constr_index += 1
                     if do_transform
-                        qp.constr_slack[constr_index] = MOI.transform(qp.model, qp.constr_slack[constr_index], MOI.GreaterThan(viol))
+                        qp.constr_slack[constr_index] = MOI.transform(
+                            qp.model,
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(viol),
+                        )
                     else
-                        MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_slack[constr_index], MOI.GreaterThan(viol))
+                        MOI.set(
+                            qp.model,
+                            MOI.ConstraintSet(),
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(viol),
+                        )
                     end
                     constr_index += 1
                 else
                     if do_transform
-                        qp.constr_slack[constr_index] = MOI.transform(qp.model, qp.constr_slack[constr_index], MOI.GreaterThan(-viol))
+                        qp.constr_slack[constr_index] = MOI.transform(
+                            qp.model,
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(-viol),
+                        )
                     else
-                        MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_slack[constr_index], MOI.GreaterThan(-viol))
+                        MOI.set(
+                            qp.model,
+                            MOI.ConstraintSet(),
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(-viol),
+                        )
                     end
                     constr_index += 1
                     if do_transform
-                        qp.constr_slack[constr_index] = MOI.transform(qp.model, qp.constr_slack[constr_index], MOI.GreaterThan(0.0))
+                        qp.constr_slack[constr_index] = MOI.transform(
+                            qp.model,
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(0.0),
+                        )
                     else
-                        MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_slack[constr_index], MOI.GreaterThan(0.0))
+                        MOI.set(
+                            qp.model,
+                            MOI.ConstraintSet(),
+                            qp.constr_slack[constr_index],
+                            MOI.GreaterThan(0.0),
+                        )
                     end
                     constr_index += 1
                 end
             elseif length(qp.slack_vars[i]) == 1
                 if do_transform
-                    qp.constr_slack[constr_index] = MOI.transform(qp.model, qp.constr_slack[constr_index], MOI.GreaterThan(-abs(viol)))
+                    qp.constr_slack[constr_index] = MOI.transform(
+                        qp.model,
+                        qp.constr_slack[constr_index],
+                        MOI.GreaterThan(-abs(viol)),
+                    )
                 else
-                    MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_slack[constr_index], MOI.GreaterThan(-abs(viol)))
+                    MOI.set(
+                        qp.model,
+                        MOI.ConstraintSet(),
+                        qp.constr_slack[constr_index],
+                        MOI.GreaterThan(-abs(viol)),
+                    )
                 end
                 # @show i, viol, length(qp.slack_vars[i]), qp.constr_slack[constr_index]
                 constr_index += 1
@@ -320,14 +382,26 @@ function sub_optimize!(
         end
     else
         # set objective coefficient
-        MOI.modify(qp.model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), MOI.ScalarConstantChange(qp.data.c0))
-        for i in 1:n
-            MOI.modify(qp.model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), MOI.ScalarCoefficientChange(MOI.VariableIndex(i), qp.data.c[i]))
+        MOI.modify(
+            qp.model,
+            MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+            MOI.ScalarConstantChange(qp.data.c0),
+        )
+        for i = 1:n
+            MOI.modify(
+                qp.model,
+                MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+                MOI.ScalarCoefficientChange(MOI.VariableIndex(i), qp.data.c[i]),
+            )
         end
 
         # set slack objective coefficient
         for (_, slacks) in qp.slack_vars, s in slacks
-            MOI.modify(qp.model, MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(), MOI.ScalarCoefficientChange(s, 0.0))
+            MOI.modify(
+                qp.model,
+                MOI.ObjectiveFunction{MOI.ScalarAffineFunction{T}}(),
+                MOI.ScalarCoefficientChange(s, 0.0),
+            )
         end
 
         # set optimization sense
@@ -343,45 +417,58 @@ function sub_optimize!(
         end
         if do_transform
             for i in eachindex(qp.constr_slack)
-                qp.constr_slack[i] = MOI.transform(qp.model, qp.constr_slack[i], MOI.EqualTo(0.0))
+                qp.constr_slack[i] =
+                    MOI.transform(qp.model, qp.constr_slack[i], MOI.EqualTo(0.0))
             end
         end
     end
 
     # set variable bounds
     for i = 1:n
-		ub = min(Δ, qp.data.v_ub[i] - x_k[i])
-		lb = max(-Δ, qp.data.v_lb[i] - x_k[i])
-		ub = (abs(ub) <= tol_error) ? 0.0 : ub
-		lb = (abs(lb) <= tol_error) ? 0.0 : lb
-		MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_v_ub[i], MOI.LessThan(ub))
-		MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_v_lb[i], MOI.GreaterThan(lb))
-	end
+        ub = min(Δ, qp.data.v_ub[i] - x_k[i])
+        lb = max(-Δ, qp.data.v_lb[i] - x_k[i])
+        ub = (abs(ub) <= tol_error) ? 0.0 : ub
+        lb = (abs(lb) <= tol_error) ? 0.0 : lb
+        MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_v_ub[i], MOI.LessThan(ub))
+        MOI.set(qp.model, MOI.ConstraintSet(), qp.constr_v_lb[i], MOI.GreaterThan(lb))
+    end
     # @show Δ, qp.data.v_lb, qp.data.v_ub, x_k
 
     # modify the constraint coefficients
-    for i=1:length(qp.j_row)
-		coeff = (abs(qp.data.A[qp.j_row[i],qp.j_col[i]]) <= tol_error) ? 0.0 : qp.data.A[qp.j_row[i],qp.j_col[i]]
-		MOI.modify(qp.model, qp.constr[qp.j_row[i]], MOI.ScalarCoefficientChange(MOI.VariableIndex(qp.j_col[i]), coeff))	
-	end
-    for (ind, val) in enumerate(qp.adj), i in 1:length(qp.data.A[val,:].nzind)
-        i_col = qp.data.A[val,:].nzind[i]
-        value = qp.data.A[val,:].nzval[i]
+    for i = 1:length(qp.j_row)
+        coeff =
+            (abs(qp.data.A[qp.j_row[i], qp.j_col[i]]) <= tol_error) ? 0.0 :
+            qp.data.A[qp.j_row[i], qp.j_col[i]]
+        MOI.modify(
+            qp.model,
+            qp.constr[qp.j_row[i]],
+            MOI.ScalarCoefficientChange(MOI.VariableIndex(qp.j_col[i]), coeff),
+        )
+    end
+    for (ind, val) in enumerate(qp.adj), i = 1:length(qp.data.A[val, :].nzind)
+        i_col = qp.data.A[val, :].nzind[i]
+        value = qp.data.A[val, :].nzval[i]
         coeff = (abs(value) <= tol_error) ? 0.0 : value
-        MOI.modify(qp.model, qp.constr[m+ind], MOI.ScalarCoefficientChange(MOI.VariableIndex(i_col), coeff))
+        MOI.modify(
+            qp.model,
+            qp.constr[m+ind],
+            MOI.ScalarCoefficientChange(MOI.VariableIndex(i_col), coeff),
+        )
     end
     # @show qp.data.A, qp.j_row, qp.j_col
 
     # modify RHS
-    for i=1:m
-        c_ub = qp.data.c_ub[i]-b[i]
-        c_lb = qp.data.c_lb[i]-b[i]	
+    for i = 1:m
+        c_ub = qp.data.c_ub[i] - b[i]
+        c_lb = qp.data.c_lb[i] - b[i]
         c_ub = (abs(c_ub) <= tol_error) ? 0.0 : c_ub
         c_lb = (abs(c_lb) <= tol_error) ? 0.0 : c_lb
-        
+
         if qp.data.c_lb[i] == qp.data.c_ub[i]
             MOI.set(qp.model, MOI.ConstraintSet(), qp.constr[i], MOI.EqualTo(c_lb))
-        elseif qp.data.c_lb[i] != -Inf && qp.data.c_ub[i] != Inf && qp.data.c_lb[i] < qp.data.c_ub[i]
+        elseif qp.data.c_lb[i] != -Inf &&
+               qp.data.c_ub[i] != Inf &&
+               qp.data.c_lb[i] < qp.data.c_ub[i]
             MOI.set(qp.model, MOI.ConstraintSet(), qp.constr[i], MOI.GreaterThan(c_lb))
         elseif qp.data.c_lb[i] != -Inf
             MOI.set(qp.model, MOI.ConstraintSet(), qp.constr[i], MOI.GreaterThan(c_lb))
@@ -471,33 +558,6 @@ function get_scalar_quadratic_terms(Q::Tm) where {T,Tm<:AbstractSparseMatrix{T,I
             elseif i > j
                 push!(terms, MOI.ScalarQuadraticTerm{T}(vals[i], rows[i], j))
             end
-        end
-    end
-    return terms
-end
-
-"""
-	get_moi_constraint_row_terms
-
-Get the array of MOI constraint terms from row `i` of matrix `A`
-"""
-function get_moi_constraint_row_terms(
-    A::Tm,
-    i::Int,
-) where {T,Tm<:AbstractSparseMatrix{T,Int}}
-    Ai = A[i, :]
-    terms = Array{MOI.ScalarAffineTerm{T},1}()
-    for (ind, val) in zip(Ai.nzind, Ai.nzval)
-        push!(terms, MOI.ScalarAffineTerm{T}(val, MOI.VariableIndex(ind)))
-    end
-    return terms
-end
-
-function get_moi_constraint_row_terms(A::Tm, i::Int) where {T,Tm<:DenseArray{T,2}}
-    terms = Array{MOI.ScalarAffineTerm{T},1}()
-    for j = 1:size(A, 2)
-        if !isapprox(A[i, j], 0.0)
-            push!(terms, MOI.ScalarAffineTerm{T}(A[i, j], MOI.VariableIndex(j)))
         end
     end
     return terms
