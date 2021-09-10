@@ -35,7 +35,7 @@ mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
     dual_infeas::T # dual (approximate?) infeasibility
     compl::T # complementary slackness
 
-    optimizer::MOI.AbstractOptimizer # LP solver
+    optimizer::Union{Nothing,AbstractSubOptimizer} # Subproblem optimizer
 
     options::Parameters
 
@@ -69,7 +69,7 @@ mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.compl = Inf
 
         slp.options = problem.parameters
-        slp.optimizer = MOI.instantiate(slp.options.external_optimizer)
+        slp.optimizer = nothing
 
         slp.feasibility_restoration = false
         slp.iter = 1
@@ -123,7 +123,7 @@ function run!(slp::SlpTR)
         # solve LP subproblem (to initialize dual multipliers)
         slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status =
             sub_optimize!(slp, slp.Δ)
-        # @show slp.lambda
+        # @show slp.x, slp.p, slp.lambda, slp.p_slack
 
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
 
@@ -136,7 +136,7 @@ function run!(slp::SlpTR)
             break
         elseif status == MOI.INFEASIBLE
             if slp.feasibility_restoration == true
-                @printf("Failed to find a feasible direction\n")
+                @info "Failed to find a feasible direction"
                 if slp.prim_infeas <= slp.options.tol_infeas
                     slp.ret = 6
                 else
@@ -161,7 +161,6 @@ function run!(slp::SlpTR)
 
         # Check the first-order optimality condition
         if slp.prim_infeas <= slp.options.tol_infeas &&
-           slp.dual_infeas <= slp.options.tol_residual &&
            slp.compl <= slp.options.tol_residual &&
            norm(slp.p, Inf) <= slp.options.tol_direction
 
@@ -169,7 +168,7 @@ function run!(slp::SlpTR)
                 slp.feasibility_restoration = false
                 slp.iter += 1
                 continue
-            else
+            elseif slp.dual_infeas <= slp.options.tol_residual
                 slp.ret = 0
                 break
             end

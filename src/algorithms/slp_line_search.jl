@@ -26,7 +26,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     dual_infeas::T # dual (approximate?) infeasibility
     compl::T # complementary slackness
 
-    optimizer::MOI.AbstractOptimizer # LP solver
+    optimizer::Union{Nothing,AbstractSubOptimizer} # Subproblem optimizer
 
     options::Parameters
 
@@ -58,7 +58,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.compl = Inf
 
         slp.options = problem.parameters
-        slp.optimizer = MOI.instantiate(slp.options.external_optimizer)
+        slp.optimizer = nothing
 
         slp.feasibility_restoration = false
         slp.iter = 1
@@ -119,9 +119,8 @@ function run!(slp::SlpLS)
 
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
-        slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status =
-            sub_optimize!(slp, slp.options.tr_size)
-
+        slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status = sub_optimize!(slp)
+        
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
 
         if status ∉ [MOI.OPTIMAL, MOI.INFEASIBLE]
@@ -133,7 +132,7 @@ function run!(slp::SlpLS)
             break
         elseif status == MOI.INFEASIBLE
             if slp.feasibility_restoration == true
-                @printf("Failed to find a feasible direction\n")
+                @info "Failed to find a feasible direction"
                 if slp.prim_infeas <= slp.options.tol_infeas
                     slp.ret = 6
                 else
@@ -183,14 +182,16 @@ function run!(slp::SlpLS)
 
         # Failed to find a step size
         if !is_valid_step
+            @info "Failed to find a step size"
             if slp.ret == -3
-                @printf("Failed to find a step size\n")
                 if slp.prim_infeas <= slp.options.tol_infeas
                     slp.ret = 6
                 else
                     slp.ret = 2
                 end
                 break
+            else
+                slp.feasibility_restoration = true
             end
 
             slp.iter += 1
@@ -225,12 +226,10 @@ function compute_alpha(slp::SlpLS)::Bool
     while phi_x_p > slp.phi + eta * slp.alpha * slp.directional_derivative
         # The step size can become too small.
         if slp.alpha < slp.options.min_alpha
-            @printf("Descent step cannot be computed.\n")
+            # @printf("Descent step cannot be computed.\n")
             # @printf("Feasibility restoration is required but not implemented yet.\n")
             if slp.feasibility_restoration
                 slp.ret = -3
-            else
-                slp.feasibility_restoration = true
             end
             is_valid = false
             break
