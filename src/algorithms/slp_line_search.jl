@@ -26,7 +26,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     dual_infeas::T # dual (approximate?) infeasibility
     compl::T # complementary slackness
 
-    optimizer::MOI.AbstractOptimizer # LP solver
+    optimizer::Union{Nothing,AbstractSubOptimizer} # Subproblem optimizer
 
     options::Parameters
 
@@ -34,6 +34,7 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
     iter::Int # iteration counter
     ret::Int # solution status
     start_time::Float64 # solution start time
+    start_iter_time::Float64 # iteration start time
 
     function SlpLS(problem::Model{T,Tv,Tt}) where {T,Tv<:AbstractArray{T},Tt}
         slp = new{T,Tv,Tt}()
@@ -57,12 +58,13 @@ mutable struct SlpLS{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.compl = Inf
 
         slp.options = problem.parameters
-        slp.optimizer = MOI.instantiate(slp.options.external_optimizer)
+        slp.optimizer = nothing
 
         slp.feasibility_restoration = false
         slp.iter = 1
         slp.ret = -5
         slp.start_time = 0.0
+        slp.start_iter_time = 0.0
 
         return slp
     end
@@ -85,6 +87,8 @@ function run!(slp::SlpLS)
         )
         @printf("LP subproblem sparsity: %e\n", sparsity_val)
         add_statistics(slp.problem, "sparsity", sparsity_val)
+    else
+        Logging.disable_logging(Logging.Info)
     end
 
     # Set initial point from MOI
@@ -104,6 +108,8 @@ function run!(slp::SlpLS)
     is_valid_step = true
     while true
 
+        slp.start_iter_time = time()
+
         # evaluate function, constraints, gradient, Jacobian
         eval_functions!(slp)
         slp.alpha = 0.0
@@ -114,7 +120,7 @@ function run!(slp::SlpLS)
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
         slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status =
-            sub_optimize!(slp, slp.options.tr_size)
+            sub_optimize!(slp)
 
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
 
@@ -127,7 +133,7 @@ function run!(slp::SlpLS)
             break
         elseif status == MOI.INFEASIBLE
             if slp.feasibility_restoration == true
-                @printf("Failed to find a feasible direction\n")
+                @info "Failed to find a feasible direction"
                 if slp.prim_infeas <= slp.options.tol_infeas
                     slp.ret = 6
                 else
@@ -152,35 +158,6 @@ function run!(slp::SlpLS)
         print(slp)
         collect_statistics(slp)
 
-        # Failed to find a step size
-        if slp.ret == -3
-            @printf("Failed to find a step size\n")
-            if slp.prim_infeas <= slp.options.tol_infeas
-                slp.ret = 6
-            else
-                slp.ret = 2
-            end
-            break
-        end
-
-        if !is_valid_step
-            slp.iter += 1
-            continue
-        end
-
-        # Check the first-order optimality condition
-        if slp.prim_infeas <= slp.options.tol_infeas &&
-           slp.compl <= slp.options.tol_residual &&
-           min(-slp.directional_derivative, slp.alpha * norm(slp.p, Inf)) <=
-           slp.options.tol_direction
-            if slp.feasibility_restoration
-                slp.feasibility_restoration = false
-            else
-                slp.ret = 0
-                break
-            end
-        end
-
         # Iteration counter limit
         if slp.iter >= slp.options.max_iter
             slp.ret = -1
@@ -188,6 +165,38 @@ function run!(slp::SlpLS)
                 slp.ret = 6
             end
             break
+        end
+
+        if (
+            slp.prim_infeas <= slp.options.tol_infeas &&
+            slp.compl <= slp.options.tol_residual
+        ) || norm(slp.p, Inf) <= slp.options.tol_direction
+            if slp.feasibility_restoration
+                slp.feasibility_restoration = false
+                slp.iter += 1
+                continue
+            elseif slp.dual_infeas <= slp.options.tol_residual
+                slp.ret = 0
+                break
+            end
+        end
+
+        # Failed to find a step size
+        if !is_valid_step
+            @info "Failed to find a step size"
+            if slp.ret == -3
+                if slp.prim_infeas <= slp.options.tol_infeas
+                    slp.ret = 6
+                else
+                    slp.ret = 2
+                end
+                break
+            else
+                slp.feasibility_restoration = true
+            end
+
+            slp.iter += 1
+            continue
         end
 
         # update primal points
@@ -202,6 +211,7 @@ function run!(slp::SlpLS)
     slp.problem.mult_g .= slp.lambda
     slp.problem.mult_x_U .= slp.mult_x_U
     slp.problem.mult_x_L .= slp.mult_x_L
+    add_statistic(slp.problem, "iter", slp.iter)
 end
 
 """
@@ -222,8 +232,6 @@ function compute_alpha(slp::SlpLS)::Bool
             # @printf("Feasibility restoration is required but not implemented yet.\n")
             if slp.feasibility_restoration
                 slp.ret = -3
-            else
-                slp.feasibility_restoration = true
             end
             is_valid = false
             break
@@ -231,21 +239,19 @@ function compute_alpha(slp::SlpLS)::Bool
         slp.alpha *= slp.options.tau
         phi_x_p = compute_phi(slp, slp.x, slp.alpha, slp.p)
     end
-    # @show phi_x_p, slp.phi, slp.directional_derivative
+    # @show phi_x_p, slp.phi, slp.alpha, slp.directional_derivative, is_valid
     return is_valid
 end
 
 """
     compute_nu!
 
-Compute the penalty parameter for the merit function. This is based on the paper: https://doi.org/10.1016/j.epsr.2018.09.002
+Compute the penalty parameter for the merit function.
 """
 function compute_nu!(slp::SlpLS)
     if slp.iter == 1
-        norm_df = ifelse(slp.feasibility_restoration, 1.0, norm(slp.df))
-        J = compute_jacobian_matrix(slp)
         for i = 1:slp.problem.m
-            slp.ν[i] = max(1.0, norm_df / max(1.0, norm(J[i, :])))
+            slp.ν[i] = abs(slp.lambda[i])
         end
     else
         for i = 1:slp.problem.m
@@ -333,5 +339,6 @@ function collect_statistics(slp::SlpLS)
     # add_statistics(slp.problem, "inf_du", dual_infeas)
     add_statistics(slp.problem, "compl", slp.compl)
     add_statistics(slp.problem, "alpha", slp.alpha)
+    add_statistics(slp.problem, "iter_time", time() - slp.start_iter_time)
     add_statistics(slp.problem, "time_elapsed", time() - slp.start_time)
 end

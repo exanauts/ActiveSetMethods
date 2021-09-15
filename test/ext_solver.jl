@@ -1,34 +1,13 @@
 using JuMP
 using MathOptInterface
-const MOI = MathOptInterface
 
+optimizer_solver = optimizer_with_attributes(
+    ActiveSetMethods.Optimizer,
+    "external_optimizer" => GLPK.Optimizer,
+    "OutputFlag" => 0,
+)
 
-optimizer_solver = nothing
-model = nothing
-xsol = 0.0
-ysol = 0.0
-status = nothing
-
-optimizer_solver = try
-    optimizer_with_attributes(
-        ActiveSetMethods.Optimizer,
-        "external_optimizer" => GLPK.Optimizer,
-		"OutputFlag" => 1,
-    )
-catch
-    ActiveSetMethods.Optimizer
-end
-
-model = try
-    Model(optimizer_solver)
-catch
-    Model(ActiveSetMethods.Optimizer)
-end
-
-if typeof(optimizer_solver) == DataType
-    set_optimizer_attribute(model, "external_optimizer", GLPK.Optimizer)
-    set_optimizer_attribute(model, "OutputFlag", 1)
-end
+model = Model(optimizer_solver)
 
 @variable(model, X);
 @variable(model, Y);
@@ -38,26 +17,8 @@ end
 @NLconstraint(model, X * Y >= 0);
 @constraint(model, X >= -2);
 
-# println("________________________________________");
-# print(model);
-# println("________________________________________");
+JuMP.optimize!(model);
 
-if (typeof(optimizer_solver) == MOI.OptimizerWithAttributes)
-    status = try
-        JuMP.optimize!(model)
-        termination_status(model)
-    catch
-        nothing
-    end
-end
-
-if !isnothing(status)
-    xsol = JuMP.value.(X)
-    ysol = JuMP.value.(Y)
-end
-
-
-
-
-
-
+xsol = JuMP.value.(X)
+ysol = JuMP.value.(Y)
+status = termination_status(model)

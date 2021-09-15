@@ -54,8 +54,7 @@ function norm_complementarity(
     p = Inf
 ) where {T, Tv <: AbstractArray{T}}
     m = length(E)
-    n = length(x)
-    compl = Tv(undef, m+2*n)
+    compl = Tv(undef, m)
     denom = 0.0
     for i = 1:m
         if g_L[i] == g_U[i]
@@ -63,20 +62,6 @@ function norm_complementarity(
         else
             compl[i] = min(E[i] - g_L[i], g_U[i] - E[i]) * lambda[i]
             denom += lambda[i]^2
-        end
-    end
-    for j = 1:n
-        if x_U[j] == Inf
-            compl[m+j] = 0.0
-        else
-            compl[m+j] = (x[j] - x_U[j]) * mult_x_U[j]
-            denom += mult_x_U[j]^2
-        end
-        if x_L[j] == -Inf
-            compl[m+n+j] = 0.0
-        else
-            compl[m+n+j] = (x[j] - x_L[j]) * mult_x_L[j]
-            denom += mult_x_L[j]^2
         end
     end
     return norm(compl, p) / (1 + sqrt(denom))

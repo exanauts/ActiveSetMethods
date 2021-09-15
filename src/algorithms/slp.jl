@@ -20,13 +20,31 @@ function LpData(slp::AbstractSlpOptimizer)
 		slp.problem.x_U)
 end
 
-sub_optimize!(slp::AbstractSlpOptimizer, Δ) = sub_optimize!(
-	slp.optimizer,
-	LpData(slp),
-	slp.x,
-	Δ,
-    slp.feasibility_restoration
-)
+function sub_optimize!(slp::AbstractSlpOptimizer, Δ = 1000.0)
+    if isnothing(slp.optimizer)
+        j_row = Vector{Int}(undef, length(slp.problem.j_str))
+        j_col = Vector{Int}(undef, length(slp.problem.j_str))
+        for i=1:length(slp.problem.j_str)
+            j_row[i] = Int(slp.problem.j_str[i][1]);
+            j_col[i] = Int(slp.problem.j_str[i][2]);
+        end
+        slp.optimizer = QpModel(
+            MOI.instantiate(slp.options.external_optimizer),
+            LpData(slp),
+            j_row,
+            j_col
+        )
+        create_model!(slp.optimizer, slp.x, Δ)
+    else
+        slp.optimizer.data = LpData(slp)
+    end
+    return sub_optimize!(
+        slp.optimizer,
+        slp.x,
+        Δ,
+        slp.feasibility_restoration
+    )
+end
 
 """
     compute_nu!
