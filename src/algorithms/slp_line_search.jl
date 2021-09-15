@@ -211,6 +211,7 @@ function run!(slp::SlpLS)
     slp.problem.mult_g .= slp.lambda
     slp.problem.mult_x_U .= slp.mult_x_U
     slp.problem.mult_x_L .= slp.mult_x_L
+    add_statistic(slp.problem, "iter", slp.iter)
 end
 
 """
@@ -245,7 +246,7 @@ end
 """
     compute_nu!
 
-Compute the penalty parameter for the merit function. This is based on the paper: https://doi.org/10.1016/j.epsr.2018.09.002
+Compute the penalty parameter for the merit function.
 """
 function compute_nu!(slp::SlpLS)
     if slp.iter == 1

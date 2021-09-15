@@ -202,6 +202,7 @@ function run!(slp::SlpTR)
     slp.problem.mult_g .= slp.lambda
     slp.problem.mult_x_U .= slp.mult_x_U
     slp.problem.mult_x_L .= slp.mult_x_L
+    add_statistic(slp.problem, "iter", slp.iter)
 end
 
 """
