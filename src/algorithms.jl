@@ -16,4 +16,5 @@ function run! end
 include("algorithms/common.jl")
 include("algorithms/merit.jl")
 include("algorithms/subproblem.jl")
+include("algorithms/sqp.jl")
 include("algorithms/slp.jl")

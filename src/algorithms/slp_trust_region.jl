@@ -8,41 +8,14 @@ This is based on the paper: https://doi.org/10.1016/j.epsr.2018.09.002
 - We have implemented the feasibility restoration, which is not available in the original paper.
 """
 mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
-    problem::Model{T,Tv,Tt} # problem data
-
-    x::Tv # primal solution
-    p::Tv # search direction
-    p_slack::Dict{Int,Tv} # search direction at feasibility restoration phase
-    lambda::Tv # Lagrangian dual multiplier
-    mult_x_L::Tv # reduced cost for lower bound
-    mult_x_U::Tv # reduced cost for upper bound
-
-    # Evaluations at `x`
-    f::T # objective function
-    df::Tv # gradient
-    E::Tv # constraint
-    dE::Tv # Jacobian
+    @sqp_fields
 
     phi::T # merit function value
-    ν::Tv # penalty parameters for the merit function
-
+    μ::Tv # penalty parameters for the merit function
     Δ::T # current trust region size
     Δ_max::T # maximum trust region size allowed
     alpha1::T # parameter to adjust trust region size
     alpha2::T # parameter to adjust trust region size
-
-    prim_infeas::T # primal infeasibility at `x`
-    dual_infeas::T # dual (approximate?) infeasibility
-    compl::T # complementary slackness
-
-    optimizer::Union{Nothing,AbstractSubOptimizer} # Subproblem optimizer
-
-    options::Parameters
-
-    feasibility_restoration::Bool # indicator for feasibility restoration
-    iter::Int # iteration counter
-    ret::Int # solution status
-    start_time::Float64 # solution start time
 
     function SlpTR(problem::Model{T,Tv,Tt}) where {T,Tv<:AbstractArray{T},Tt}
         slp = new{T,Tv,Tt}()
@@ -56,9 +29,23 @@ mutable struct SlpTR{T,Tv,Tt} <: AbstractSlpOptimizer
         slp.df = Tv(undef, problem.n)
         slp.E = Tv(undef, problem.m)
         slp.dE = Tv(undef, length(problem.j_str))
-        slp.phi = Inf
 
-        slp.ν = Tv(undef, problem.m)
+        slp.j_row = Vector{Int}(undef, length(problem.j_str))
+        slp.j_col = Vector{Int}(undef, length(problem.j_str))
+        for i=1:length(problem.j_str)
+            slp.j_row[i] = Int(problem.j_str[i][1])
+            slp.j_col[i] = Int(problem.j_str[i][2])
+        end
+        slp.Jacobian = sparse(slp.j_row, slp.j_col, ones(length(slp.j_row)), problem.m, problem.n)
+
+        # No Hessian
+        slp.h_row = Vector{Int}(undef, 0)
+        slp.h_col = Vector{Int}(undef, 0)
+        slp.h_val = Tv(undef, 0)
+        slp.Hessian = nothing
+
+        slp.phi = Inf
+        slp.μ = Tv(undef, problem.m)
         slp.Δ = problem.parameters.tr_size
         slp.Δ_max = 2.0
         slp.alpha1 = 0.1
@@ -116,14 +103,25 @@ function run!(slp::SlpTR)
     slp.iter = 1
     while true
 
+        # Iteration counter limit
+        if slp.iter > slp.options.max_iter
+            slp.ret = -1
+            if slp.prim_infeas <= slp.options.tol_infeas
+                slp.ret = 6
+            end
+            break
+        end
+
         # evaluate function, constraints, gradient, Jacobian
         eval_functions!(slp)
+        slp.prim_infeas = norm_violations(slp, Inf)
+        slp.dual_infeas = KT_residuals(slp)
+        slp.compl = norm_complementarity(slp)
 
         LP_time_start = time()
         # solve LP subproblem (to initialize dual multipliers)
         slp.p, slp.lambda, slp.mult_x_U, slp.mult_x_L, slp.p_slack, status =
             sub_optimize!(slp, slp.Δ)
-        # @show slp.x, slp.p, slp.lambda, slp.p_slack
 
         add_statistics(slp.problem, "LP_time", time() - LP_time_start)
 
@@ -149,13 +147,8 @@ function run!(slp::SlpTR)
             end
         end
 
-        compute_nu!(slp)
+        compute_mu!(slp)
 
-        slp.prim_infeas = norm_violations(slp, Inf)
-        slp.dual_infeas = KT_residuals(slp)
-        slp.compl = norm_complementarity(slp)
-
-        print_header(slp)
         print(slp)
         collect_statistics(slp)
 
@@ -172,15 +165,6 @@ function run!(slp::SlpTR)
                 slp.ret = 0
                 break
             end
-        end
-
-        # Iteration counter limit
-        if slp.iter >= slp.options.max_iter
-            slp.ret = -1
-            if slp.prim_infeas <= slp.options.tol_infeas
-                slp.ret = 6
-            end
-            break
         end
 
         # step size computation
@@ -206,13 +190,30 @@ function run!(slp::SlpTR)
 end
 
 """
+    compute_mu!
+
+Compute the penalty parameter for the merit function. This is based on the paper: https://doi.org/10.1016/j.epsr.2018.09.002
+"""
+function compute_mu!(slp::SlpTR)
+    if slp.iter == 1
+        norm_df = ifelse(slp.feasibility_restoration, 1.0, norm(slp.df))
+        for i = 1:slp.problem.m
+            slp.μ[i] = max(1.0, norm_df / max(1.0, norm(slp.Jacobian[i, :])))
+        end
+    else
+        for i = 1:slp.problem.m
+            slp.μ[i] = max(slp.μ[i], abs(slp.lambda[i]))
+        end
+    end
+end
+
+"""
     step_quality
 
 Evaluate the next step and adjust the trust region size
 """
 function step_quality(slp::SlpTR)
-    slp.phi = compute_phi(slp, slp.x, slp.p) - compute_phi(slp, slp.x)
-    # @show compute_phi(slp, slp.x, slp.p), compute_phi(slp, slp.x)
+    slp.phi = compute_phi(slp, slp.x, 1.0, slp.p) - compute_phi(slp, slp.x, 0.0, slp.p)
 
     ϕ_pre = compute_derivative(slp)
 
@@ -251,27 +252,11 @@ function step_quality(slp::SlpTR)
 end
 
 """
-    compute_phi
+    print
 
-Evaluate and return the merit function value for the current point x.
+Print iteration information.
 """
-compute_phi(slp::SlpTR, x::Tv) where {T,Tv<:AbstractArray{T}} =
-    compute_phi(slp, x, 0.0, slp.p)
-
-"""
-    compute_phi
-
-Evaluate and return the merit function value for the next point x + p.
-"""
-compute_phi(slp::SlpTR, x::Tv, p::Tv) where {T,Tv<:AbstractArray{T}} =
-    compute_phi(slp, x, 1.0, p)
-
-"""
-    print_header
-
-Print the header of iteration information.
-"""
-function print_header(slp::SlpTR)
+function print(slp::SlpTR)
     if slp.options.OutputFlag == 0
         return
     end
@@ -285,17 +270,6 @@ function print_header(slp::SlpTR)
         @printf("  %14s", "compl")
         @printf("  %10s", "time")
         @printf("\n")
-    end
-end
-
-"""
-    print
-
-Print iteration information.
-"""
-function print(slp::SlpTR)
-    if slp.options.OutputFlag == 0
-        return
     end
     st = ifelse(slp.feasibility_restoration, "FR", "  ")
     @printf("%2s%6d", st, slp.iter)

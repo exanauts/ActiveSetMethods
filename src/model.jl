@@ -66,12 +66,16 @@ function optimize!(model::Model)
         @error "`external_optimizer` parameter must be set for subproblem solutions."
     else
         if model.parameters.method == "SLP"
+            model.eval_h = nothing
             if model.parameters.algorithm == "Line Search"
                 slp = SlpLS(model)
             elseif model.parameters.algorithm == "Trust Region"
                 slp = SlpTR(model)
             end
             run!(slp)
+        elseif model.parameters.method == "SQP"
+            sqp = SqpLS(model)
+            run!(sqp)
         else
             @error "The method is not defined"
         end

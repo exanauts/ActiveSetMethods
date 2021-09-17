@@ -1,25 +1,4 @@
 """
-    compute_jacobian_matrix
-    
-Compute Jacobian matrix
-
-# Arguments
-- `m`: number of rows of the Jacobian matrix
-- `n`: number of columns of the Jacobian matrix
-- `j_str`: Jacobian matrix structure (coordination of the nonzero elements)
-- `dE`: nonzero element values
-"""
-function compute_jacobian_matrix(
-    m::Int, n::Int, j_str::Tt, dE::Tv
-) where {T, Tt<:AbstractArray{Tuple{Int64,Int64}}, Tv<:AbstractArray{T}}
-	J = spzeros(m, n)
-	for i = 1:length(j_str)
-		J[j_str[i][1], j_str[i][2]] += dE[i]
-    end 
-    return J
-end
-
-"""
     KT_residuals
 
 Compute Kuhn-Turck residuals

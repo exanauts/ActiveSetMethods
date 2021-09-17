@@ -5,6 +5,7 @@ using SparseArrays
 using Printf
 using Logging
 
+using JuMP
 import MathOptInterface
 
 const MOI = MathOptInterface
