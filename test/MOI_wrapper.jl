@@ -11,7 +11,7 @@ MOI.set(optimizer, MOI.RawParameter("tol_residual"), 1.e-2)
 MOI.set(optimizer, MOI.RawParameter("tol_infeas"), 1.e-2)
 MOI.set(optimizer, MOI.RawParameter("OutputFlag"), 0)
 
-const config_no_duals = MOIT.TestConfig(atol=1e-2, rtol=1e-2, duals=false, optimal_status=MOI.LOCALLY_SOLVED)
+const config_no_duals = MOIT.TestConfig(atol=1e-1, rtol=1e-1, duals=false, optimal_status=MOI.LOCALLY_SOLVED)
 
 @testset "SolverName" begin
     @test MOI.get(optimizer, MOI.SolverName()) == "ActiveSetMethods"
@@ -83,7 +83,7 @@ end
                          MOIU.CachingOptimizer(model_for_ActiveSetMethods, optimizer))
     MOIT.contlineartest(linear_optimizer, config_no_duals, exclude)
     # Tests setting bounds of `SingleVariable` constraint
-    # MOIT.linear1test(linear_optimizer, config_no_duals)
+    # MOIT.linear3test(linear_optimizer, config_no_duals)
     MOI.empty!(optimizer)
 end
 
@@ -92,6 +92,7 @@ end
     MOI.set(optimizer, MOI.RawParameter("algorithm"), algo)
     qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
     MOIT.qptest(qp_optimizer, config_no_duals)
+    # MOIT.qp1test(qp_optimizer, config_no_duals)
     MOI.empty!(optimizer)
 end
 
