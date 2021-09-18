@@ -215,10 +215,10 @@ function compute_derivative(sqp::AbstractSqpOptimizer)
         for (_, v) in sqp.p_slack
             dfp += sum(v)
         end
-        for i = 1:slp.problem.m
-            viol = maximum([0.0, slp.E[i] - slp.problem.g_U[i], slp.problem.g_L[i] - slp.E[i]])
-            lhs = slp.E[i] - viol
-            cons_viol += maximum([0.0, lhs - slp.problem.g_U[i], slp.problem.g_L[i] - lhs])
+        for i = 1:sqp.problem.m
+            viol = maximum([0.0, sqp.E[i] - sqp.problem.g_U[i], sqp.problem.g_L[i] - sqp.E[i]])
+            lhs = sqp.E[i] - viol
+            cons_viol += maximum([0.0, lhs - sqp.problem.g_U[i], sqp.problem.g_L[i] - lhs])
         end
     else
         dfp += sqp.df' * sqp.p
