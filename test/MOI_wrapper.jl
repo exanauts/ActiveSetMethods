@@ -5,7 +5,14 @@ const MOIU = MOI.Utilities
 const MOIB = MOI.Bridges
 
 const optimizer = ActiveSetMethods.Optimizer()
+const ipopt_optimizer = optimizer_with_attributes(
+    Ipopt.Optimizer,
+    "print_level" => 0,
+    "warm_start_init_point" => "yes",
+)
+
 MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer)
+MOI.set(optimizer, MOI.RawParameter("algorithm"), "SLP-LS")
 MOI.set(optimizer, MOI.RawParameter("max_iter"), 3000)
 MOI.set(optimizer, MOI.RawParameter("tol_residual"), 1.e-2)
 MOI.set(optimizer, MOI.RawParameter("tol_infeas"), 1.e-2)
@@ -22,8 +29,8 @@ end
     @test !MOIU.supports_default_copy_to(optimizer, true)
 end
 
-@testset "Unit ($algo)" for algo in ["Line Search", "Trust Region"]
-# @testset "Unit ($algo)" for algo in ["Line Search"]
+@testset "Unit ($algo)" for algo in ["SLP-LS", "SLP-TR"]
+    MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer)
     MOI.set(optimizer, MOI.RawParameter("algorithm"), algo)
     bridged = MOIB.full_bridge_optimizer(optimizer, Float64)
     # A number of test cases are excluded because loadfromstring! works only
@@ -69,7 +76,8 @@ end
     MOI.empty!(optimizer)
 end
 
-@testset "MOI Linear tests ($algo)" for algo in ["Line Search", "Trust Region"]
+@testset "MOI Linear tests ($algo)" for algo in ["SLP-LS", "SLP-TR"]
+    MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer)
     MOI.set(optimizer, MOI.RawParameter("algorithm"), algo)
     exclude = ["linear8a", # Behavior in infeasible case doesn't match test.
                "linear12", # Same as above.
@@ -88,7 +96,8 @@ end
 end
 
 # FIXME: LP subproblems are numerically instable in the trust region method.
-@testset "MOI QP tests ($algo)" for algo in ["Line Search"]
+@testset "MOI QP tests ($algo)" for algo in ["SLP-LS"]
+    MOI.set(optimizer, MOI.RawParameter("external_optimizer"), GLPK.Optimizer)
     MOI.set(optimizer, MOI.RawParameter("algorithm"), algo)
     qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
     MOIT.qptest(qp_optimizer, config_no_duals)
@@ -96,16 +105,27 @@ end
     MOI.empty!(optimizer)
 end
 
-@testset "MOI QCQP tests ($algo)" for algo in ["Line Search", "Trust Region"]
+@testset "MOI QCQP tests ($algo)" for algo in ["SLP-LS", "SQP"]
+    MOI.set(
+        optimizer, 
+        MOI.RawParameter("external_optimizer"), 
+        ifelse(algo == "SQP", ipopt_optimizer, GLPK.Optimizer)
+    )
     MOI.set(optimizer, MOI.RawParameter("algorithm"), algo)
     qp_optimizer = MOIU.CachingOptimizer(MOIU.Model{Float64}(), optimizer)
     exclude = ["qcp1"] # VectorAffineFunction not supported.
     MOIT.qcptest(qp_optimizer, config_no_duals, exclude)
+    # MOIT.qcp2test(qp_optimizer, config_no_duals)
     MOI.empty!(optimizer)
 end
 
 # FIXME: LP subproblems are numerically instable in the trust region method.
-@testset "MOI NLP tests ($algo)" for algo in ["Line Search"]
+@testset "MOI NLP tests ($algo)" for algo in ["SLP-LS", "SQP"]
+    MOI.set(
+        optimizer, 
+        MOI.RawParameter("external_optimizer"), 
+        ifelse(algo == "SQP", ipopt_optimizer, GLPK.Optimizer)
+    )
     MOI.set(optimizer, MOI.RawParameter("algorithm"), algo)
     MOIT.nlptest(optimizer, config_no_duals)
     # MOIT.hs071_test(optimizer, config_no_duals)

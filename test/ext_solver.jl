@@ -1,9 +1,8 @@
-using JuMP
-using MathOptInterface
 
 optimizer_solver = optimizer_with_attributes(
     ActiveSetMethods.Optimizer,
     "external_optimizer" => GLPK.Optimizer,
+    "algorithm" => "SLP-LS",
     "OutputFlag" => 0,
 )
 

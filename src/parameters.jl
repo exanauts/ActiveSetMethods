@@ -1,17 +1,19 @@
 Base.@kwdef mutable struct Parameters
     mode::String = "Normal"           # If Debug it will allow printing some useful information including collecting values for analysis parameters.
-    method::String = "SLP"            # Defines the method -- either SLP or SQP (SQP hasn't been implemented yet)
-    algorithm::String = "Line Search" # Defines the algorithm -- either Line Search or Trust Region Method (Trust Region algorithm hasn't been implemented yet)
+    algorithm::String = "SQP" # SLP-LS: sequential linear programming with line search
+                              # SLP-TR: sequential linear programming with line search
+                              # SQP: sequential quadratic programming with line search
 
     # Defines the external solver for suproblems
-    external_optimizer::Union{Nothing,DataType,MOI.OptimizerWithAttributes,Function} = nothing
-    
+    external_optimizer::Union{Nothing,DataType,MOI.OptimizerWithAttributes,Function} =
+        nothing
+
     # Whether to use approximation hessian (limited-memory), exact, or none
     hessian_type::String = "none"
-    
+
     # flags
-    OutputFlag::Int = 1	   # 0 supresses all outputs except warnings and errors
-    StatisticsFlag::Int = 0	   # 0 supresses collection of statistics parameters
+    OutputFlag::Int = 1   # 0 supresses all outputs except warnings and errors
+    StatisticsFlag::Int = 0   # 0 supresses collection of statistics parameters
 
     # Algorithmic parameters
     tol_direction::Float64 = 1.e-6  # tolerance for the norm of direction

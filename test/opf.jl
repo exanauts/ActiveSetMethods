@@ -1,5 +1,4 @@
-using ActiveSetMethods
-using PowerModels, JuMP, GLPK, Ipopt
+using PowerModels
 
 PowerModels.silence()
 
@@ -9,7 +8,7 @@ build_acp(data_file::String) = instantiate_model(
     PowerModels.build_opf
 )
 
-function run_slp_opf(data_file::String, max_iter::Int = 100, algorithm = "Line Search")
+function run_slp_opf(data_file::String, max_iter::Int = 100, algorithm = "SLP-LS")
     pm = build_acp(data_file)
     result = optimize_model!(pm, optimizer = optimizer_with_attributes(
         ActiveSetMethods.Optimizer, 
@@ -30,7 +29,7 @@ function run_sqp_opf(data_file::String, max_iter::Int = 100)
     )
     result = optimize_model!(pm, optimizer = optimizer_with_attributes(
         ActiveSetMethods.Optimizer, 
-        "method" => "SQP",
+        "algorithm" => "SQP",
         "external_optimizer" => qp_solver,
         "max_iter" => max_iter,
     ))
