@@ -251,9 +251,7 @@ function sub_optimize!(
                 mult_x_L[j] = 0.0
             end
         end
-    elseif status == MOI.DUAL_INFEASIBLE
-        @error "Trust region must be employed."
-    elseif status == MOI.INFEASIBLE
+    elseif status ∈ [MOI.INFEASIBLE, MOI.DUAL_INFEASIBLE, MOI.NORM_LIMIT]
         fill!(Xsol, 0.0)
         fill!(lambda, 0.0)
         fill!(mult_x_U, 0.0)

@@ -128,14 +128,9 @@ function run!(sqp::SqpLS)
 
         add_statistics(sqp.problem, "LP_time", time() - LP_time_start)
 
-        if status ∉ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED, MOI.INFEASIBLE]
-            @warn("Unexpected LP subproblem solution status ($status)")
-            sqp.ret == -3
-            if sqp.prim_infeas <= sqp.options.tol_infeas
-                sqp.ret = 6
-            end
-            break
-        elseif status == MOI.INFEASIBLE
+        if status ∈ [MOI.OPTIMAL, MOI.LOCALLY_SOLVED]
+            # do nothing
+        elseif status ∈ [MOI.INFEASIBLE, MOI.DUAL_INFEASIBLE, MOI.NORM_LIMIT]
             if sqp.feasibility_restoration == true
                 @info "Failed to find a feasible direction"
                 if sqp.prim_infeas <= sqp.options.tol_infeas
@@ -149,6 +144,13 @@ function run!(sqp::SqpLS)
                 sqp.feasibility_restoration = true
                 continue
             end
+        else
+            @warn("Unexpected QP subproblem solution status ($status)")
+            sqp.ret == -3
+            if sqp.prim_infeas <= sqp.options.tol_infeas
+                sqp.ret = 6
+            end
+            break
         end
 
         compute_mu!(sqp)
@@ -224,7 +226,7 @@ end
 
 Solve QP subproblems by using JuMP
 """
-sub_optimize!(sqp::SqpLS) = sub_optimize!(sqp, JuMP.Model(sqp.options.external_optimizer))
+sub_optimize!(sqp::SqpLS) = sub_optimize!(sqp, JuMP.Model(sqp.options.external_optimizer), 1000.0)
 
 """
     compute_mu!
