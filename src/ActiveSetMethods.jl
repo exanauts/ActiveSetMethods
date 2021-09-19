@@ -2,6 +2,9 @@ module ActiveSetMethods
 
 using LinearAlgebra
 using SparseArrays
+using Printf
+using Logging
+
 import MathOptInterface
 
 const MOI = MathOptInterface
