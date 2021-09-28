@@ -167,15 +167,25 @@ function run!(slp::SlpLS)
             break
         end
 
+        # if (
+        #     slp.prim_infeas <= slp.options.tol_infeas &&
+        #     slp.compl <= slp.options.tol_residual
+        # ) || norm(slp.p, Inf) <= slp.options.tol_direction
+        #     if slp.feasibility_restoration
+        #         slp.feasibility_restoration = false
+        #         slp.iter += 1
+        #         continue
+        #     elseif slp.dual_infeas <= slp.options.tol_residual
+        #         slp.ret = 0
+        #         break
+        #     end
+        # end
+
         if (
             slp.prim_infeas <= slp.options.tol_infeas &&
             slp.compl <= slp.options.tol_residual
         ) || norm(slp.p, Inf) <= slp.options.tol_direction
-            if slp.feasibility_restoration
-                slp.feasibility_restoration = false
-                slp.iter += 1
-                continue
-            elseif slp.dual_infeas <= slp.options.tol_residual
+            if slp.dual_infeas <= slp.options.tol_residual
                 slp.ret = 0
                 break
             end
@@ -197,6 +207,8 @@ function run!(slp::SlpLS)
 
             slp.iter += 1
             continue
+        elseif slp.feasibility_restoration == true
+            slp.feasibility_restoration = false
         end
 
         # update primal points
